@@ -37,6 +37,30 @@ def clean_players(players, players_teams):
     players = players[players['bioID'].isin(players_teams['playerID'])]
     players = players.drop_duplicates(subset=['bioID'])
 
+    players_teams = players_teams[players_teams['playerID'].isin(players['bioID'])]
+    #remove lgID column
+    players_teams = players_teams.drop(columns=['lgID'])
+    #make a new df for player_season where players with stint > 0 are joined into one row if year is the same, the stats are summed, the rest of the players remain the same and the colomn stint is removed
+    # Filter rows where stint > 0
+    player_season = players_teams[players_teams['stint'] > 0]
+
+    # Define columns that need to be grouped by and columns to be summed
+    groupby_cols = ['playerID', 'year']
+    sum_cols = ["GP", "GS", "minutes", "points", "oRebounds", "dRebounds", "rebounds", 
+                "assists", "steals", "blocks", "turnovers", "PF", "fgAttempted", "fgMade", 
+                "ftAttempted", "ftMade", "threeAttempted", "threeMade", "dq", "PostGP", 
+                "PostGS", "PostMinutes", "PostPoints", "PostoRebounds", "PostdRebounds", 
+                "PostRebounds", "PostAssists", "PostSteals", "PostBlocks", "PostTurnovers", 
+                "PostPF", "PostfgAttempted", "PostfgMade", "PostftAttempted", "PostftMade", 
+                "PostthreeAttempted", "PostthreeMade", "PostDQ"]
+
+    # Group by 'playerID' and 'year', then sum the specific columns
+    player_season = player_season.groupby(groupby_cols)[sum_cols].sum().reset_index()
+
+    # Drop the 'stint' column
+    player_season = player_season.drop(columns=['stint'])
+
+
     return
 
 def clean_awards_players(award_players):
