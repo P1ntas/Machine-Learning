@@ -21,6 +21,16 @@ def clean_series_post():
     series_post.pop("lgIDLoser")
     return
 
+def clean_players(players, players_teams):
+    players = players[(players['deathDate'] == '0000-00-00') & (players['birthDate'] != '0000-00-00')]
+    players = players.drop(columns=['deathDate'])
+
+    players = players[players['bioID'].isin(players_teams['playerID'])]
+    players = players.drop_duplicates(subset=['bioID'])
+
+    players.to_csv('basketballPlayoffs/players.csv', index=False)
+    return
+
 def clean_awards_players():
     # Handle missing or incomplete data
     df = pd.read_csv("basketballPlayoffs/awards_players.csv")
@@ -52,6 +62,7 @@ if __name__ == "__main__":
     series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
     teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
     
+    clean_players(players, players_teams)
     # Merge Data
     merge_data()
     
