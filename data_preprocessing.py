@@ -2,6 +2,7 @@ import pandas as pd
 
 def merge_data():
     merged_df = pd.merge(coaches, teams, on=['year', 'tmID'])
+    merged_df = pd.merge(teams_post, merged_df, on=['year', 'tmID'])
     print(merged_df.head(5))
     return
 
@@ -70,12 +71,12 @@ if __name__ == "__main__":
     teams = pd.read_csv("basketballPlayoffs/teams.csv")
     series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
     teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
+
+    # Data Cleaning
+    clean_data()
     
     # Merge Data
     merge_data()
-    
-    # Data Cleaning
-    clean_data()
     
     # Feature Engineering
     feature_engineering()
