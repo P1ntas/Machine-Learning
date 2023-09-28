@@ -52,7 +52,6 @@ def clean_data():
     clean_awards_players(awards_players)
     clean_coaches(coaches)
     clean_players(players, players_teams)
-    clean_awards_players()
     clean_teams()
     clean_teams_post()
     clean_series_post()
@@ -72,11 +71,11 @@ if __name__ == "__main__":
     series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
     teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
     
-    # Data Cleaning
-    clean_data()
-
     # Merge Data
     merge_data()
+    
+    # Data Cleaning
+    clean_data()
     
     # Feature Engineering
     feature_engineering()
