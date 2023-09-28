@@ -1,19 +1,15 @@
 import pandas as pd
 
-def load_data():
-    # Load all your CSV files into Pandas DataFrame from basketballPlayoffs folder
-    awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
-    coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
-    players = pd.read_csv("basketballPlayoffs/players.csv")
-    players_teams = pd.read_csv("basketballPlayoffs/players_teams.csv")
-    teams = pd.read_csv("basketballPlayoffs/teams.csv")
-    series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
-    teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
-    clean_players(players, players_teams)
-    return
-
 def merge_data():
-    # Merge the datasets into a single DataFrame using keys like 'year', 'tmID', etc.
+    teams.pop("lgID")
+    teams.pop("divID")
+    teams.pop("seeded")
+    teams.pop("arena")
+    teams.pop("o_reb")
+    teams.pop("d_reb")
+    teams_post.pop("lgID")
+    series_post.pop("lgIDWinner")
+    series_post.pop("lgIDLoser")
     return
 
 def clean_players(players, players_teams):
@@ -26,8 +22,19 @@ def clean_players(players, players_teams):
     players.to_csv('basketballPlayoffs/players.csv', index=False)
     return
 
-def clean_data():
+def clean_awards_players():
     # Handle missing or incomplete data
+    df = pd.read_csv("basketballPlayoffs/awards_players.csv")
+    df.pop("lgID")
+
+    df = df.groupby('playerID')['award'].count().reset_index()
+    df.columns = ['playerID', 'awards_count']
+    print(df.head(15))
+    return df
+
+def clean_data():
+    print()
+    clean_awards_players()
     return
 
 def feature_engineering():
@@ -36,8 +43,15 @@ def feature_engineering():
 
 if __name__ == "__main__":
     # Load Data
-    load_data()
+    awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
+    coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
+    players = pd.read_csv("basketballPlayoffs/players.csv")
+    players_teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
+    teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
     
+    clean_players(players, players_teams)
     # Merge Data
     merge_data()
     
