@@ -23,8 +23,20 @@ def merge_data():
     series_post.pop("lgIDLoser")
     return
 
+
+def clean_awards_players():
+    # Handle missing or incomplete data
+    df = pd.read_csv("basketballPlayoffs/awards_players.csv")
+    df.pop("lgID")
+
+    df = df.groupby('playerID')['award'].count().reset_index()
+    df.columns = ['playerID', 'awards_count']
+    print(df.head(15))
+    return df
+
 def clean_data():
     print()
+    clean_awards_players()
     return
 
 def feature_engineering():
