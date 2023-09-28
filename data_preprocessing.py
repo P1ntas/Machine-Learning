@@ -5,14 +5,25 @@ def load_data():
     awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
     coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
     players = pd.read_csv("basketballPlayoffs/players.csv")
-    players_teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    players_teams = pd.read_csv("basketballPlayoffs/players_teams.csv")
     teams = pd.read_csv("basketballPlayoffs/teams.csv")
     series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
     teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
+    clean_players(players, players_teams)
     return
 
 def merge_data():
     # Merge the datasets into a single DataFrame using keys like 'year', 'tmID', etc.
+    return
+
+def clean_players(players, players_teams):
+    players = players[(players['deathDate'] == '0000-00-00') & (players['birthDate'] != '0000-00-00')]
+    players = players.drop(columns=['deathDate'])
+
+    players = players[players['bioID'].isin(players_teams['playerID'])]
+    players = players.drop_duplicates(subset=['bioID'])
+
+    players.to_csv('basketballPlayoffs/players.csv', index=False)
     return
 
 def clean_data():
