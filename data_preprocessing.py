@@ -15,8 +15,20 @@ def merge_data():
     # Merge the datasets into a single DataFrame using keys like 'year', 'tmID', etc.
     return
 
+
+def clean_awards_players():
+    # Handle missing or incomplete data
+    df = pd.read_csv("basketballPlayoffs/awards_players.csv")
+    df.pop("lgID")
+
+    df = df.groupby('playerID')['award'].count().reset_index()
+    df.columns = ['playerID', 'awards_count']
+    print(df.head(15))
+    return df
+
 def clean_data():
     # Handle missing or incomplete data
+    clean_awards_players()
     return
 
 def feature_engineering():
