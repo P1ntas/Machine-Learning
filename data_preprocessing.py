@@ -21,7 +21,7 @@ def clean_series_post():
     series_post.pop("lgIDLoser")
     return
 
-def clean_players(players, players_teams):
+def clean_players():
     players = players[(players['deathDate'] == '0000-00-00') & (players['birthDate'] != '0000-00-00')]
     players = players.drop(columns=['deathDate'])
 
@@ -42,6 +42,7 @@ def clean_awards_players():
     return df
 
 def clean_data():
+    clean_players()
     clean_awards_players()
     clean_teams()
     clean_teams_post()
