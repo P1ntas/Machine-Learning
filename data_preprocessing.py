@@ -3,7 +3,6 @@ import pandas as pd
 def merge_data():
     merged_df = pd.merge(coaches, teams, on=['year', 'tmID'])
     merged_df = pd.merge(teams_post, merged_df, on=['year', 'tmID'])
-    print(merged_df.head(5))
     return
 
 def clean_teams():
