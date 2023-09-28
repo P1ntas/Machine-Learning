@@ -1,28 +1,25 @@
 import pandas as pd
 
-def load_data():
-    # Load all your CSV files into Pandas DataFrame from basketballPlayoffs folder
-    awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
-    coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
-    players = pd.read_csv("basketballPlayoffs/players.csv")
-    players_teams = pd.read_csv("basketballPlayoffs/teams.csv")
-    teams = pd.read_csv("basketballPlayoffs/teams.csv")
-    series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
-    teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
+def merge_data():
     return
 
-def merge_data():
+def clean_teams():
     teams.pop("lgID")
     teams.pop("divID")
     teams.pop("seeded")
     teams.pop("arena")
     teams.pop("o_reb")
     teams.pop("d_reb")
+    return
+
+def clean_teams_post():
     teams_post.pop("lgID")
+    return
+
+def clean_series_post():
     series_post.pop("lgIDWinner")
     series_post.pop("lgIDLoser")
     return
-
 
 def clean_awards_players():
     # Handle missing or incomplete data
@@ -35,8 +32,10 @@ def clean_awards_players():
     return df
 
 def clean_data():
-    print()
     clean_awards_players()
+    clean_teams()
+    clean_teams_post()
+    clean_series_post()
     return
 
 def feature_engineering():
