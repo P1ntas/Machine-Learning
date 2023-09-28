@@ -1,7 +1,14 @@
 import pandas as pd
 
 def load_data():
-    # Load all your CSV files into Pandas DataFrames
+    # Load all your CSV files into Pandas DataFrame from basketballPlayoffs folder
+    awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
+    coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
+    players = pd.read_csv("basketballPlayoffs/players.csv")
+    players_teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
+    teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
     return
 
 def merge_data():
