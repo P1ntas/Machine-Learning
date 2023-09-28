@@ -21,7 +21,7 @@ def clean_series_post():
     series_post.pop("lgIDLoser")
     return
 
-def clean_players():
+def clean_players(players, players_teams):
     players = players[(players['deathDate'] == '0000-00-00') & (players['birthDate'] != '0000-00-00')]
     players = players.drop(columns=['deathDate'])
 
@@ -38,11 +38,10 @@ def clean_awards_players():
 
     df = df.groupby('playerID')['award'].count().reset_index()
     df.columns = ['playerID', 'awards_count']
-    print(df.head(15))
     return df
 
 def clean_data():
-    clean_players()
+    clean_players(players, players_teams)
     clean_awards_players()
     clean_teams()
     clean_teams_post()
@@ -58,12 +57,11 @@ if __name__ == "__main__":
     awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
     coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
     players = pd.read_csv("basketballPlayoffs/players.csv")
-    players_teams = pd.read_csv("basketballPlayoffs/teams.csv")
+    players_teams = pd.read_csv("basketballPlayoffs/players_teams.csv")
     teams = pd.read_csv("basketballPlayoffs/teams.csv")
     series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
     teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
     
-    clean_players(players, players_teams)
     # Merge Data
     merge_data()
     
