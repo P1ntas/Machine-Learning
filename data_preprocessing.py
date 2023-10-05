@@ -2,12 +2,13 @@ import pandas as pd
 
 def merge_data():
     merged_df = pd.merge(coaches, teams, on=['year', 'tmID'])
-    merged_df = pd.merge(teams_post, merged_df, on=['year', 'tmID'])
+    merged_df = pd.merge(teams_post, merged_df, on=['year', 'tmID'], how='outer')
     players_df = pd.merge(players, awards_players, left_on=['bioID'], right_on=['playerID'])
     players_df.pop('playerID')
     players_df = pd.merge(players, players_teams, left_on=['bioID'], right_on=['playerID'])
     merged_df = pd.merge(players_df, merged_df, on=['year', 'tmID'])
-
+    merged_df.pop('playerID')
+    merged_df.pop('lgID')
     return merged_df
 
 def clean_teams():
@@ -18,6 +19,7 @@ def clean_teams():
     teams.pop("arena")
     teams.pop("o_reb")
     teams.pop("d_reb")
+    
     return
 
 def clean_teams_post():
