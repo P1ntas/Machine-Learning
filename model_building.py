@@ -1,5 +1,6 @@
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import logging
@@ -29,7 +30,7 @@ def get_columns_to_remove(df):
     remove_columns.extend([col for col in df.columns if 'Post' in col or 'post' in col])
     return remove_columns
 
-def train_and_evaluate(df, remove_columns, years, i):
+def train_and_evaluate(df, remove_columns, years, i, classifier):
     train_years = years[:i]
     test_year = years[i]
     
@@ -41,17 +42,20 @@ def train_and_evaluate(df, remove_columns, years, i):
     X_test = test.drop(remove_columns, axis=1)
     y_test = test['playoff']
 
-    clf = DecisionTreeClassifier()
+    clf = classifier
     clf.fit(X_train, y_train)
     
     predictions = clf.predict(X_test)
     return accuracy_score(y_test, predictions)
 
-def plot_results(years, results):
-    plt.plot(years, results)
+def plot_results(years, results_dict):
+    for classifier, results in results_dict.items():
+        plt.plot(years, results, label=classifier)
+    
     plt.xlabel('Year Predicted')
     plt.ylabel('Accuracy')
-    plt.title('Sliding Window Results for Decision Tree')
+    plt.title('Sliding Window Results for Various Classifiers')
+    plt.legend()
     plt.show()
 
 def train_model():
@@ -64,14 +68,24 @@ def train_model():
         
         years = df['year'].unique()
         years.sort()
-        results = []
+        
+        classifiers = {
+            "DecisionTree": DecisionTreeClassifier(random_state=42),
+            "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
+            "GradientBoosting": GradientBoostingClassifier(n_estimators=100, random_state=42)
+        }
+        
+        results_dict = {}
 
-        for i in range(5, len(years)):
-            accuracy = train_and_evaluate(df, remove_columns, years, i)
-            logging.info(f"Year: {years[i]}, Accuracy: {accuracy:.2f}")
-            results.append(accuracy)
+        for classifier_name, classifier in classifiers.items():
+            results = []
+            for i in range(5, len(years)):
+                accuracy = train_and_evaluate(df, remove_columns, years, i, classifier)
+                logging.info(f"Classifier: {classifier_name}, Year: {years[i]}, Accuracy: {accuracy:.2f}")
+                results.append(accuracy)
+            results_dict[classifier_name] = results
 
-        plot_results(years[5:], results)
+        plot_results(years[5:], results_dict)
 
 if __name__ == "__main__":
     train_model()
