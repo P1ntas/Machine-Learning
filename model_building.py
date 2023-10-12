@@ -31,8 +31,11 @@ def get_columns_to_remove(df):
     return remove_columns
 
 def train_and_evaluate(df, remove_columns, years, i, classifier):
-    train_years = years[:i]
+    train_years = years[:i]  # Use all years up to i
     test_year = years[i]
+    
+    logging.info(f"Training years: {train_years}")
+    logging.info(f"Testing year: {test_year}")
     
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
@@ -54,7 +57,7 @@ def plot_results(years, results_dict):
     
     plt.xlabel('Year Predicted')
     plt.ylabel('Accuracy')
-    plt.title('Sliding Window Results for Various Classifiers')
+    plt.title('Rolling Window Results for Various Classifiers')
     plt.legend()
     plt.show()
 
@@ -79,13 +82,13 @@ def train_model():
 
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(5, len(years)):
+            for i in range(2, len(years)):
                 accuracy = train_and_evaluate(df, remove_columns, years, i, classifier)
                 logging.info(f"Classifier: {classifier_name}, Year: {years[i]}, Accuracy: {accuracy:.2f}")
                 results.append(accuracy)
             results_dict[classifier_name] = results
 
-        plot_results(years[5:], results_dict)
+        plot_results(years[2:], results_dict)
 
 if __name__ == "__main__":
     train_model()
