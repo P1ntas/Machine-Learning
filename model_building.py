@@ -27,11 +27,10 @@ def pre_process_data(df):
 
 def get_columns_to_remove(df):
     remove_columns = ['playoff', 'W', 'L', 'rank']
-    remove_columns.extend([col for col in df.columns if 'Post' in col or 'post' in col])
     return remove_columns
 
 def train_and_evaluate(df, remove_columns, years, i, classifier):
-    train_years = years[:i]  # Use all years up to i
+    train_years = years[:i]
     test_year = years[i]
     
     logging.info(f"Training years: {train_years}")
@@ -49,7 +48,9 @@ def train_and_evaluate(df, remove_columns, years, i, classifier):
     clf.fit(X_train, y_train)
     
     predictions = clf.predict(X_test)
-    return accuracy_score(y_test, predictions)
+    accuracy = accuracy_score(y_test, predictions)
+
+    return predictions, y_test.to_numpy(), accuracy
 
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
@@ -67,6 +68,7 @@ def train_model():
     
     if df is not None:
         df = pre_process_data(df)
+        
         remove_columns = get_columns_to_remove(df)
         
         years = df['year'].unique()
@@ -79,16 +81,31 @@ def train_model():
         }
         
         results_dict = {}
+        prediction_data = []
 
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(2, len(years)):
-                accuracy = train_and_evaluate(df, remove_columns, years, i, classifier)
+            for i in range(1, len(years)):
+                predicted, actual, accuracy = train_and_evaluate(df, remove_columns, years, i, classifier)
+                
+                for p, a in zip(predicted, actual):
+                    prediction_data.append({
+                        'Year': years[i],
+                        'Classifier': classifier_name,
+                        'Predicted': p,
+                        'Actual': a
+                    })
+                
                 logging.info(f"Classifier: {classifier_name}, Year: {years[i]}, Accuracy: {accuracy:.2f}")
                 results.append(accuracy)
             results_dict[classifier_name] = results
 
-        plot_results(years[2:], results_dict)
+        plot_results(years[1:], results_dict)
+        
+        # Create DataFrame from prediction data and save to CSV
+        prediction_df = pd.DataFrame(prediction_data)
+        prediction_df['Accuracy'] = prediction_df.apply(lambda row: 1 if row['Predicted'] == row['Actual'] else 0, axis=1)
+        #prediction_df.to_csv('prediction_results.csv', index=False) # Uncomment to save prediction results to CSV
 
 if __name__ == "__main__":
     train_model()
