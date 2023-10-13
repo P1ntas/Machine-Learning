@@ -1,12 +1,16 @@
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
+# Function to read data from a CSV file
 def read_data(file_path):
     try:
         df = pd.read_csv(file_path)
@@ -18,17 +22,18 @@ def read_data(file_path):
         logging.error(f"An error occurred: {str(e)}")
     return None
 
+# Preprocessing data: handling NaN values and mapping categorical to numerical
 def pre_process_data(df):
     mapping = {'Y': 1, 'N': 0}
     df['playoff'] = df['playoff'].map(mapping)
     df.fillna(0, inplace=True)
     return df
 
+# A function that returns a list of columns to remove from the dataset during training/testing
 def get_columns_to_remove():
-    # Keep 'tmID' and do not remove it in this function.
     return ['playoff', 'rank', 'seeded', 'firstRound', 'semis', 'finals', 'lgID', 'franchID', 'confID', 'divID', 'name', 'arena']
 
-
+# Function to train a model and evaluate it
 def train_and_evaluate(df, years, i, classifier):
     train_years = years[:i]
     test_year = years[i]
@@ -41,23 +46,32 @@ def train_and_evaluate(df, years, i, classifier):
     
     remove_columns = get_columns_to_remove()
     
-    X_train = train.drop(remove_columns + ['tmID'], axis=1)  # Removing 'tmID' for training.
-    X_test = test.drop(remove_columns, axis=1)  # Keeping 'tmID' to merge later.
+    X_train = train.drop(remove_columns + ['tmID'], axis=1)
+    X_test = test.drop(remove_columns + ['tmID'], axis=1)
     y_train = train['playoff']
     y_test = test['playoff']
 
+    # Feature Engineering
+    X_train['winning_percentage'] = X_train['won'] / (X_train['won'] + X_train['lost'] * -1)  # Assuming 'lost' has been made negative
+    X_test['winning_percentage'] = X_test['won'] / (X_test['won'] + X_test['lost'] * -1)  # Same for test data
+
+    # Possible Scaling (you might want to identify numeric columns and scale them)
+    # from sklearn.preprocessing import MinMaxScaler
+    # scaler = MinMaxScaler()
+    # X_train[some_columns] = scaler.fit_transform(X_train[some_columns])
+    # X_test[some_columns] = scaler.transform(X_test[some_columns])
+    
     clf = classifier
     clf.fit(X_train, y_train)
     
-    # Temporarily removing 'tmID' for prediction.
-    predictions = clf.predict(X_test.drop(['tmID'], axis=1))
-    proba = clf.predict_proba(X_test.drop(['tmID'], axis=1))[:, 1]
+    predictions = clf.predict(X_test)
+    proba = clf.predict_proba(X_test)[:, 1]
     accuracy = accuracy_score(y_test, predictions)
     
-    # Returning 'tmID' to link predictions with teams.
-    return predictions, proba, y_test.to_numpy(), X_test['tmID'].to_numpy(), accuracy
+    return predictions, proba, y_test.to_numpy(), test['tmID'], accuracy
 
 
+# Function to plot the results
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
         plt.plot(years, results, label=classifier)
@@ -68,18 +82,28 @@ def plot_results(years, results_dict):
     plt.legend()
     plt.show()
 
+# Main function to train the model and save predictions
 def train_model():
     data_file_path = "./basketballPlayoffs/teams.csv"
     df = read_data(data_file_path)
     
     if df is not None:
         df = pre_process_data(df)
+
+        # Handling Negativity (you mentioned losses should be negative)
+        df['lost'] = df['lost'] * -1  # Make losses negative
         
         years = df['year'].unique()
         years.sort()
         
         classifiers = {
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
+            # K-Nearest Neighbors: A simple, instance-based learning algorithm
+            "KNN": KNeighborsClassifier(n_neighbors=3),
+            # Gaussian Naive Bayes: Assumes features follow a normal distribution and are conditionally independent given the class
+            "NaiveBayes": GaussianNB(),
+            # MLP: A neural network model that can capture non-linear patterns
+            "MLP": MLPClassifier(hidden_layer_sizes=(100,), max_iter=300, random_state=42)
         }
         
         results_dict = {}
@@ -89,8 +113,7 @@ def train_model():
             results = []
             for i in range(1, len(years)):
                 predicted, predicted_proba, actual, tmIDs, accuracy = train_and_evaluate(df, years, i, classifier)
-
-                # Add tmID to prediction_data
+                
                 for p, pp, a, tmID in zip(predicted, predicted_proba, actual, tmIDs):
                     prediction_data.append({
                         'tmID': tmID,
@@ -103,11 +126,10 @@ def train_model():
                 
                 logging.info(f"Classifier: {classifier_name}, Year: {years[i]}, Accuracy: {accuracy:.2f}")
                 results.append(accuracy)
-            results_dict[classifier_name] = results
+                results_dict[classifier_name] = results
         
         plot_results(years[1:], results_dict)
 
-        # Saving results to CSV
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results.csv', index=False)
 
