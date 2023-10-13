@@ -25,7 +25,9 @@ def pre_process_data(df):
     return df
 
 def get_columns_to_remove():
-    return ['playoff', 'rank', 'seeded', 'firstRound', 'semis', 'finals', 'lgID', 'tmID', 'franchID', 'confID', 'divID','name','arena']
+    # Keep 'tmID' and do not remove it in this function.
+    return ['playoff', 'rank', 'seeded', 'firstRound', 'semis', 'finals', 'lgID', 'franchID', 'confID', 'divID', 'name', 'arena']
+
 
 def train_and_evaluate(df, years, i, classifier):
     train_years = years[:i]
@@ -39,19 +41,22 @@ def train_and_evaluate(df, years, i, classifier):
     
     remove_columns = get_columns_to_remove()
     
-    X_train = train.drop(remove_columns, axis=1)
+    X_train = train.drop(remove_columns + ['tmID'], axis=1)  # Removing 'tmID' for training.
+    X_test = test.drop(remove_columns, axis=1)  # Keeping 'tmID' to merge later.
     y_train = train['playoff']
-    X_test = test.drop(remove_columns, axis=1)
     y_test = test['playoff']
 
     clf = classifier
     clf.fit(X_train, y_train)
     
-    predictions = clf.predict(X_test)
-    proba = clf.predict_proba(X_test)[:, 1]  # get the probability of class 1 (making the playoffs)
+    # Temporarily removing 'tmID' for prediction.
+    predictions = clf.predict(X_test.drop(['tmID'], axis=1))
+    proba = clf.predict_proba(X_test.drop(['tmID'], axis=1))[:, 1]
     accuracy = accuracy_score(y_test, predictions)
     
-    return predictions, proba, y_test.to_numpy(), accuracy
+    # Returning 'tmID' to link predictions with teams.
+    return predictions, proba, y_test.to_numpy(), X_test['tmID'].to_numpy(), accuracy
+
 
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
@@ -83,10 +88,12 @@ def train_model():
         for classifier_name, classifier in classifiers.items():
             results = []
             for i in range(1, len(years)):
-                predicted, predicted_proba, actual, accuracy = train_and_evaluate(df, years, i, classifier)
-                
-                for p, pp, a in zip(predicted, predicted_proba, actual):
+                predicted, predicted_proba, actual, tmIDs, accuracy = train_and_evaluate(df, years, i, classifier)
+
+                # Add tmID to prediction_data
+                for p, pp, a, tmID in zip(predicted, predicted_proba, actual, tmIDs):
                     prediction_data.append({
+                        'tmID': tmID,
                         'Year': years[i],
                         'Classifier': classifier_name,
                         'Predicted': p,
