@@ -103,7 +103,7 @@ def train_model():
                 results_dict[classifier_name] = results
         
         predictions_df = pd.DataFrame(prediction_data)
-        predictions_df.to_csv('predictions_results.csv', index=False)
+        predictions_df.to_csv('predictions_results-teams.csv', index=False)
 
         plot_results(years[1:], results_dict)
 
