@@ -6,6 +6,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import logging
+import warnings
+warnings.filterwarnings(action='ignore', category=FutureWarning)
 
 logging.basicConfig(level=logging.INFO)
 
