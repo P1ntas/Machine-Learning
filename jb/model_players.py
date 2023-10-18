@@ -7,6 +7,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 #import another classifier
 from sklearn.neural_network import MLPClassifier
+import seaborn as sns
 
 import warnings
 warnings.filterwarnings(action='ignore', category=FutureWarning)
@@ -39,9 +40,6 @@ def get_teams_data():
     return None
 
 def get_sample_weights(train):
-    """
-    Assign weights based on year. Recent year's samples are given higher weight.
-    """
     max_year = train['year'].max()
     weights = train['year'].apply(lambda x: 2 if x == max_year else 1)
     return weights
@@ -51,7 +49,7 @@ def merge_with_team_data(df, teams_df):
     return merged_df
 
 def get_columns_to_remove():
-    return ['lgID', 'tmID', 'playerID']
+    return ['lgID', 'tmID', 'playerID','playoff']
 
 def train_and_evaluate(df, years, i, classifier):
     train_years = years[:i]  # Training on data from start till year i-1
@@ -62,6 +60,9 @@ def train_and_evaluate(df, years, i, classifier):
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
     remove_columns = get_columns_to_remove()
+
+    #print("First few rows of training data:\n", train.head()) # Added
+    #print("First few rows of testing data:\n", test.head()) # Added
 
     X_train = train.drop(remove_columns, axis=1)
     X_test = test.drop(remove_columns, axis=1)
@@ -106,6 +107,7 @@ def train_and_evaluate(df, years, i, classifier):
 
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
+        print(classifier, results)
         plt.plot(years, results, label=classifier)
 
     plt.xlabel('Year Predicted')
@@ -114,6 +116,42 @@ def plot_results(years, results_dict):
     plt.legend()
     plt.show()
 
+def plot_heatmaps(predictions_df):
+    classifiers = predictions_df['Classifier'].unique()
+    teams = predictions_df['tmID'].unique()
+    years = predictions_df['Year'].unique()
+
+    print("Heatmap data:")
+    print(classifiers)
+    print(teams)
+    print(years)
+
+
+    # Create a single figure to plot all heatmaps
+    fig, axes = plt.subplots(nrows=len(classifiers), figsize=(15, 5*len(classifiers)))
+
+
+    for idx, classifier in enumerate(classifiers):
+        # Create an empty dataframe to store probabilities
+        heatmap_data = pd.DataFrame(index=teams, columns=years)
+        heatmap_data.fillna(0, inplace=True)
+
+        # Fill in the dataframe with probabilities
+        subset = predictions_df[predictions_df['Classifier'] == classifier]
+        for _, row in subset.iterrows():
+            heatmap_data.at[row['tmID'], row['Year']] = float(row['Probability'])
+
+        # Plot the heatmap
+        ax = axes[idx] if len(classifiers) > 1 else axes
+        sns.heatmap(heatmap_data, cmap="PuBu", ax=ax, annot=True)
+        ax.set_title(classifier)
+        ax.set_xlabel("Year")
+        ax.set_ylabel("Team ID")
+
+    plt.tight_layout()
+    plt.show()
+
+
 def train_model():
     data_file_path = "../basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
@@ -121,15 +159,16 @@ def train_model():
     teams_df = get_teams_data()
     if df is not None and teams_df is not None:
         df = merge_with_team_data(df, teams_df)
+        
         years = df['year'].unique()
         years.sort()
 
         classifiers = {
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
             "KNN": KNeighborsClassifier(n_neighbors=3),
-            "LogisticRegression": LogisticRegression(max_iter=10000), # Increased max_iter for convergence
+            #"LogisticRegression": LogisticRegression(max_iter=10000), # Increased max_iter for convergence
             "SVM": SVC(probability=True), # Enable probability estimates
-            "MLP": MLPClassifier(hidden_layer_sizes=(100, 50, 10), max_iter=10000) # Increased max_iter for convergence
+            #"MLP": MLPClassifier(hidden_layer_sizes=(, 50, 10), max_iter=10000) # Increased max_iter for convergence
         }
 
         results_dict = {}
@@ -146,7 +185,7 @@ def train_model():
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
 
-        plot_results(years[2:], results_dict)
+        plot_heatmaps(predictions_df)
 
 if __name__ == "__main__":
     train_model()
