@@ -3,6 +3,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 import logging
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+
+import warnings
+warnings.filterwarnings(action='ignore', category=FutureWarning)
+
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +36,14 @@ def get_teams_data():
         return pre_process_data(teams_df)
     return None
 
+def get_sample_weights(train):
+    """
+    Assign weights based on year. Recent year's samples are given higher weight.
+    """
+    max_year = train['year'].max()
+    weights = train['year'].apply(lambda x: 2 if x == max_year else 1)
+    return weights
+
 def merge_with_team_data(df, teams_df):
     merged_df = df.merge(teams_df[['tmID', 'year', 'playoff']], on=['tmID', 'year'], how='left')
     return merged_df
@@ -52,8 +66,16 @@ def train_and_evaluate(df, years, i, classifier):
     y_train = train['playoff']
     y_test = test['playoff']
 
+    # Get sample weights
+    sample_weights = get_sample_weights(train)
+
     clf = classifier
-    clf.fit(X_train, y_train)
+
+    if isinstance(classifier, KNeighborsClassifier):
+        clf.fit(X_train, y_train)
+    else:
+        clf.fit(X_train, y_train, sample_weight=sample_weights)  # Use the sample weights here
+    
     proba = clf.predict_proba(X_test)[:, 1]
 
     team_avg_predictions = {}
@@ -73,7 +95,7 @@ def train_and_evaluate(df, years, i, classifier):
             'Classifier': classifier.__class__.__name__,
             'Predicted': prediction,
             'Probability': avg_prob,
-            'Actual': actual_value
+            'Actual': actual_value,
         })
 
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / len(team_results)
@@ -102,7 +124,9 @@ def train_model():
 
         classifiers = {
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
-            "KNN": KNeighborsClassifier(n_neighbors=3)
+            "KNN": KNeighborsClassifier(n_neighbors=3),
+            "LogisticRegression": LogisticRegression(max_iter=10000), # Increased max_iter for convergence
+            "SVM": SVC(probability=True) # Enable probability estimates
         }
 
         results_dict = {}
