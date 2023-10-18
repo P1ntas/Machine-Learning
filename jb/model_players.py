@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import logging
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+#import another classifier
+from sklearn.neural_network import MLPClassifier
 
 import warnings
 warnings.filterwarnings(action='ignore', category=FutureWarning)
@@ -71,7 +73,7 @@ def train_and_evaluate(df, years, i, classifier):
 
     clf = classifier
 
-    if isinstance(classifier, KNeighborsClassifier):
+    if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
         clf.fit(X_train, y_train)
     else:
         clf.fit(X_train, y_train, sample_weight=sample_weights)  # Use the sample weights here
@@ -126,7 +128,8 @@ def train_model():
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
             "KNN": KNeighborsClassifier(n_neighbors=3),
             "LogisticRegression": LogisticRegression(max_iter=10000), # Increased max_iter for convergence
-            "SVM": SVC(probability=True) # Enable probability estimates
+            "SVM": SVC(probability=True), # Enable probability estimates
+            "MLP": MLPClassifier(hidden_layer_sizes=(100, 50, 10), max_iter=10000) # Increased max_iter for convergence
         }
 
         results_dict = {}
