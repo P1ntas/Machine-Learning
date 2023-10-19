@@ -8,6 +8,9 @@ from sklearn.svm import SVC
 #import another classifier
 from sklearn.neural_network import MLPClassifier
 import seaborn as sns
+#import decision tree classifier
+from sklearn.tree import DecisionTreeClassifier
+from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
 
 import warnings
 warnings.filterwarnings(action='ignore', category=FutureWarning)
@@ -52,22 +55,27 @@ def get_columns_to_remove():
     return ['lgID', 'tmID', 'playerID','playoff']
 
 def train_and_evaluate(df, years, i, classifier):
-    train_years = years[:i]  # Training on data from start till year i-1
-    test_year = years[i]    # Testing on year i
+    train_years = years[:i+1]  # Use all years up to year i for training
+    test_year = years[i+1]     # Testing on year i+1 
+
+    if i+2 >= len(years): 
+        logging.info("Reached the last available year for testing. Stopping the process.")
+        return None, None
+
+    predict_year = years[i+2]  # Predicting for year i+2 
+
     logging.info(f"Training years: {train_years}")
-    logging.info(f"Testing year: {test_year}")
+    logging.info(f"Testing year: {test_year}, Predicting for: {predict_year}")
 
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
+    actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
+    
     remove_columns = get_columns_to_remove()
-
-    #print("First few rows of training data:\n", train.head()) # Added
-    #print("First few rows of testing data:\n", test.head()) # Added
 
     X_train = train.drop(remove_columns, axis=1)
     X_test = test.drop(remove_columns, axis=1)
     y_train = train['playoff']
-    y_test = test['playoff']
 
     # Get sample weights
     sample_weights = get_sample_weights(train)
@@ -77,7 +85,7 @@ def train_and_evaluate(df, years, i, classifier):
     if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
         clf.fit(X_train, y_train)
     else:
-        clf.fit(X_train, y_train, sample_weight=sample_weights)  # Use the sample weights here
+        clf.fit(X_train, y_train, sample_weight=sample_weights)
     
     proba = clf.predict_proba(X_test)[:, 1]
 
@@ -91,10 +99,13 @@ def train_and_evaluate(df, years, i, classifier):
     for tmID, probs in team_avg_predictions.items():
         avg_prob = sum(probs) / len(probs)
         prediction = 1 if avg_prob >= 0.5 else 0
-        actual_value = test[test['tmID'] == tmID]['playoff'].iloc[0]
+        if tmID in actual['tmID'].values:
+            actual_value = actual[actual['tmID'] == tmID]['playoff'].iloc[0]  # Fetching actual data for year i+2
+        else:
+            continue  # Skip this team if there's no data for year i+2
         team_results.append({
             'tmID': tmID,
-            'Year': test_year,
+            'Year': predict_year,  # Changed actual_year to predict_year
             'Classifier': classifier.__class__.__name__,
             'Predicted': prediction,
             'Probability': avg_prob,
@@ -104,52 +115,6 @@ def train_and_evaluate(df, years, i, classifier):
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / len(team_results)
 
     return team_results, accuracy
-
-def plot_results(years, results_dict):
-    for classifier, results in results_dict.items():
-        print(classifier, results)
-        plt.plot(years, results, label=classifier)
-
-    plt.xlabel('Year Predicted')
-    plt.ylabel('Accuracy')
-    plt.title('Rolling Window Results for Various Classifiers')
-    plt.legend()
-    plt.show()
-
-def plot_heatmaps(predictions_df):
-    classifiers = predictions_df['Classifier'].unique()
-    teams = predictions_df['tmID'].unique()
-    years = predictions_df['Year'].unique()
-
-    print("Heatmap data:")
-    print(classifiers)
-    print(teams)
-    print(years)
-
-
-    # Create a single figure to plot all heatmaps
-    fig, axes = plt.subplots(nrows=len(classifiers), figsize=(15, 5*len(classifiers)))
-
-
-    for idx, classifier in enumerate(classifiers):
-        # Create an empty dataframe to store probabilities
-        heatmap_data = pd.DataFrame(index=teams, columns=years)
-        heatmap_data.fillna(0, inplace=True)
-
-        # Fill in the dataframe with probabilities
-        subset = predictions_df[predictions_df['Classifier'] == classifier]
-        for _, row in subset.iterrows():
-            heatmap_data.at[row['tmID'], row['Year']] = float(row['Probability'])
-
-        # Plot the heatmap
-        ax = axes[idx] if len(classifiers) > 1 else axes
-        sns.heatmap(heatmap_data, cmap="PuBu", ax=ax, annot=True)
-        ax.set_title(classifier)
-        ax.set_xlabel("Year")
-        ax.set_ylabel("Team ID")
-
-    plt.tight_layout()
-    plt.show()
 
 
 def train_model():
@@ -166,9 +131,9 @@ def train_model():
         classifiers = {
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
             "KNN": KNeighborsClassifier(n_neighbors=3),
-            #"LogisticRegression": LogisticRegression(max_iter=10000), # Increased max_iter for convergence
             "SVM": SVC(probability=True), # Enable probability estimates
-            #"MLP": MLPClassifier(hidden_layer_sizes=(, 50, 10), max_iter=10000) # Increased max_iter for convergence
+            "DecisionTree": DecisionTreeClassifier(),
+            
         }
 
         results_dict = {}
@@ -176,16 +141,26 @@ def train_model():
 
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(2, len(years)):  # Starting the loop from index 2 (which corresponds to 3rd year)
+            for i in range(1, len(years) - 2):  # Adjust to ensure there's always a year to predict after the test year
                 team_results, accuracy = train_and_evaluate(df, years, i, classifier)
-                prediction_data.extend(team_results)
-                results.append(accuracy)
-                results_dict[classifier_name] = results
+                if team_results:  # Check if team_results is not None
+                    prediction_data.extend(team_results)
+                    results.append(accuracy)
+                    results_dict[classifier_name] = results
 
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
 
-        plot_heatmaps(predictions_df)
+        #make a selector to print or the barchart or the heatmap
+        selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
+        if selector == 'b':
+            plot_bar_chart(predictions_df)
+        elif selector == 'h':
+            plot_heatmaps(predictions_df)
+        elif selector == 'l':
+            plot_line_chart(predictions_df)
+        else:
+            print("Invalid input. Please try again.")
 
 if __name__ == "__main__":
     train_model()
