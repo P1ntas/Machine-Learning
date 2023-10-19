@@ -5,10 +5,8 @@ import matplotlib.pyplot as plt
 import logging
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-#import another classifier
 from sklearn.neural_network import MLPClassifier
 import seaborn as sns
-#import decision tree classifier
 from sklearn.tree import DecisionTreeClassifier
 from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
 
@@ -111,11 +109,71 @@ def train_and_evaluate(df, years, i, classifier):
             'Probability': avg_prob,
             'Actual': actual_value,
         })
+        logging.info(f"Data added for team {tmID} in year {predict_year} using classifier {classifier.__class__.__name__}")
+
 
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / len(team_results)
 
     return team_results, accuracy
 
+def plot_teams_comparison(prediction_data, classifier_name):
+    # Organize the data by years, and then by actual vs predicted
+    organized_data = {}
+
+    unique_years = sorted(list(set([entry['Year'] for entry in prediction_data])))
+
+    for year in unique_years:
+        year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Classifier'] == classifier_name]
+        if not year_data:  # If no data for the year, continue to the next
+            logging.warning(f"No data available for year {year} for classifier {classifier_name}.")
+            continue
+
+        # Get actual playoff teams
+        actual_teams = [entry['tmID'] for entry in year_data if entry['Actual'] == 1]
+        if not actual_teams:
+            logging.warning(f"No actual playoff teams found for year {year}.")
+
+        # Get the top 8 predicted teams
+        year_data_sorted = sorted(year_data, key=lambda x: x['Probability'], reverse=True)
+        predicted_teams = [entry['tmID'] for entry in year_data_sorted[:8]]
+        if not predicted_teams:
+            logging.warning(f"No teams predicted for playoffs in year {year}.")
+
+        # Calculate accuracy for this year
+        correct_predictions = len(set(actual_teams) & set(predicted_teams))
+        accuracy = correct_predictions / 8  # As 8 teams make the playoffs
+
+        organized_data[year] = {
+            'Actual': actual_teams,
+            'Predicted': predicted_teams,
+            'Accuracy': accuracy
+        }
+
+    if not organized_data:
+        logging.error(f"No data to plot for classifier {classifier_name}.")
+        return
+
+    # Increase the size of the figure
+    fig, ax = plt.subplots(figsize=(14, 8))  # Adjust the figsize values as necessary
+
+    # Hide axes
+    ax.axis('off')
+    ax.axis('tight')
+
+    table_data = [['Year', 'Actual Teams', 'Predicted Teams', 'Accuracy']]
+    for year, data in organized_data.items():
+        table_data.append([year, ', '.join(data['Actual']), ', '.join(data['Predicted']), f"{data['Accuracy']:.2f}"])
+
+    # Create table
+    table = ax.table(cellText=table_data, cellLoc='center', loc='center')
+
+    # Adjust font size for all cells
+    table.auto_set_font_size(False)
+    table.set_fontsize(8)  # Adjust the fontsize value as necessary
+
+    plt.title(f'Comparison of Actual vs Predicted Playoff Teams ({classifier_name})', fontsize=14)  # Adjust title fontsize if needed
+    plt.tight_layout()  # Ensure layout is tight and no content is clipped
+    plt.show()
 
 def train_model():
     data_file_path = "../basketballPlayoffs/players_teams.csv"
@@ -152,6 +210,8 @@ def train_model():
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
 
         #make a selector to print or the barchart or the heatmap
+        for classifier_name in classifiers:
+            plot_teams_comparison(prediction_data, classifier_name)
         selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
         if selector == 'b':
             plot_bar_chart(predictions_df)
