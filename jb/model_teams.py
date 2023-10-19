@@ -26,16 +26,30 @@ def pre_process_data(df):
     mapping = {'Y': 1, 'N': 0}
     df['playoff'] = df['playoff'].map(mapping)
     df.fillna(0, inplace=True)
+    # Ensure no division by zero and handle potential errors
+    try:
+        df['winning_percentage'] = df['won'] / (df['won'] + df['lost']).replace(0, 1)
+    except ZeroDivisionError:
+        logging.error("Division by zero when calculating winning percentage.")
     return df
+
 
 def get_columns_to_remove():
     return ['playoff', 'rank', 'seeded', 'firstRound', 'semis', 'finals', 'lgID', 'franchID', 'confID', 'divID', 'name', 'arena']
 
 def train_and_evaluate(df, years, i, classifier):
+    # Ensure we have enough years ahead for the split
+    if i + 2 >= len(years): 
+        logging.info("Insufficient years ahead for training, testing, and prediction. Stopping the process.")
+        return None, None, None, None, None
+
     train_years = years[:i]
     test_year = years[i]
+    predict_year = years[i+1]
+
     logging.info(f"Training years: {train_years}")
     logging.info(f"Testing year: {test_year}")
+    logging.info(f"Predicting for year: {predict_year}")
 
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
@@ -61,13 +75,64 @@ def train_and_evaluate(df, years, i, classifier):
 
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
-        plt.plot(years, results, label=classifier)
+        # Trim the years list to match the length of results for each classifier
+        plt.plot(years[:len(results)], results, label=classifier)
 
     plt.xlabel('Year Predicted')
     plt.ylabel('Accuracy')
-    plt.title('Rolling Window Results for Various Classifiers')
+    plt.title('Expanding Window Results for Various Classifiers')
     plt.legend()
     plt.show()
+
+def plot_teams_comparison(years, prediction_data):
+    # Let's first organize the data by year, and then by actual vs predicted
+    organized_data = {}
+
+    for year in years:
+        year_data = [entry for entry in prediction_data if entry['Year'] == year]
+        if not year_data:  # If no data for the year, continue to the next
+            continue
+
+        # Get actual playoff teams
+        actual_teams = [entry['tmID'] for entry in year_data if entry['Actual'] == 1]
+
+        # Get the top N predicted teams, where N is the number of actual playoff teams (typically 8 but can change)
+        N = len(actual_teams)
+        year_data_sorted = sorted(year_data, key=lambda x: x['Probability'], reverse=True)
+        predicted_teams = [entry['tmID'] for entry in year_data_sorted[:N]]
+
+        # Calculate accuracy for this year
+        correct_predictions = len(set(actual_teams) & set(predicted_teams))
+        accuracy = correct_predictions / N
+
+        organized_data[year] = {
+            'Actual': actual_teams,
+            'Predicted': predicted_teams,
+            'Accuracy': accuracy
+        }
+
+    # Increase the size of the figure
+    fig, ax = plt.subplots(figsize=(14, 8))  # Adjust the figsize values as necessary
+
+    # Hide axes
+    ax.axis('off')
+    ax.axis('tight')
+
+    table_data = [['Year', 'Actual Teams', 'Predicted Teams', 'Accuracy']]
+    for year, data in organized_data.items():
+        table_data.append([year, ', '.join(data['Actual']), ', '.join(data['Predicted']), f"{data['Accuracy']:.2f}"])
+
+    # Create table
+    table = ax.table(cellText=table_data, cellLoc='center', loc='center')
+
+    # Adjust font size for all cells
+    table.auto_set_font_size(False)
+    table.set_fontsize(5)  # Adjust the fontsize value as necessary
+
+    plt.title('Comparison of Actual vs Predicted Playoff Teams', fontsize=14)  # Adjust title fontsize if needed
+    plt.tight_layout()  # Ensure layout is tight and no content is clipped
+    plt.show()
+
 
 def train_model():
     data_file_path = "../basketballPlayoffs/teams.csv"
@@ -88,8 +153,12 @@ def train_model():
 
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(1, len(years)):
+            # Adjust the loop to account for the expanding window
+            for i in range(1, len(years) - 1): 
                 predicted, predicted_proba, actual, tmIDs, accuracy = train_and_evaluate(df, years, i, classifier)
+
+                if predicted is None:  # Check if the function returned None due to insufficient years
+                    break
 
                 for p, pp, a, tmID in zip(predicted, predicted_proba, actual, tmIDs):
                     prediction_data.append({
@@ -107,7 +176,9 @@ def train_model():
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results-teams.csv', index=False)
 
-        plot_results(years[1:], results_dict)
+        plot_teams_comparison(df['year'].unique(), prediction_data)
+
+        #plot_results(years[1:-1], results_dict)  # Adjust the years range for plotting
 
 if __name__ == "__main__":
     train_model()
