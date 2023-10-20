@@ -53,6 +53,11 @@ def train_and_evaluate(df, years, i, classifier):
 
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
+
+    # Filter teams that don't exist in the prediction year
+    teams_next_year = df[df['year'] == predict_year]['tmID'].unique()
+    test = test[test['tmID'].isin(teams_next_year)]
+
     remove_columns = get_columns_to_remove()
 
     X_train = train.drop(remove_columns + ['tmID'], axis=1)
@@ -73,6 +78,7 @@ def train_and_evaluate(df, years, i, classifier):
 
     return predictions, proba, y_test.to_numpy(), test['tmID'], accuracy
 
+
 def plot_results(years, results_dict):
     for classifier, results in results_dict.items():
         # Trim the years list to match the length of results for each classifier
@@ -89,21 +95,17 @@ def plot_teams_comparison(years, prediction_data):
     organized_data = {}
 
     for year in years:
-        year_data = [entry for entry in prediction_data if entry['Year'] == year]
-        if not year_data:  # If no data for the year, continue to the next
+        year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Actual'] == 1]
+        if not year_data:
             continue
 
-        # Get actual playoff teams
-        actual_teams = [entry['tmID'] for entry in year_data if entry['Actual'] == 1]
+        actual_teams = [entry['tmID'] for entry in year_data]
 
-        # Get the top N predicted teams, where N is the number of actual playoff teams (typically 8 but can change)
-        N = len(actual_teams)
-        year_data_sorted = sorted(year_data, key=lambda x: x['Probability'], reverse=True)
-        predicted_teams = [entry['tmID'] for entry in year_data_sorted[:N]]
+        # Since we're already only looking at teams that made the playoffs, there's no need to sort and slice the year_data list.
+        predicted_teams = [entry['tmID'] for entry in year_data]
 
-        # Calculate accuracy for this year
         correct_predictions = len(set(actual_teams) & set(predicted_teams))
-        accuracy = correct_predictions / N
+        accuracy = correct_predictions / len(actual_teams)
 
         organized_data[year] = {
             'Actual': actual_teams,
