@@ -34,7 +34,7 @@ def pre_process_data(df):
     return df
 
 def get_teams_data():
-    teams_file_path = "../basketballPlayoffs/teams.csv"
+    teams_file_path = "../ac/basketballPlayoffs/teams.csv"
     teams_df = read_data(teams_file_path)
     if teams_df is not None:
         return pre_process_data(teams_df)
@@ -45,12 +45,34 @@ def get_sample_weights(train):
     weights = train['year'].apply(lambda x: 2 if x == max_year else 1)
     return weights
 
+def compute_percentage(numerator, denominator):
+    return round(numerator.divide(denominator).where(denominator != 0, 0.0)*100,2)
+
 def merge_with_team_data(df, teams_df):
-    merged_df = df.merge(teams_df[['tmID', 'year', 'playoff']], on=['tmID', 'year'], how='left')
-    return merged_df
+    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
+    #drop unneeded columns
+    player_teams.drop('lgID', axis=1, inplace=True)
+
+    # Assuming you have a column 'year' to sort by
+    player_teams = player_teams.sort_values(by=['playerID', 'year'])
+    player_teams['career_year'] = player_teams.groupby('playerID').cumcount() + 1
+
+    # Regular Season Percentages
+    player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
+    player_teams['fg%'] = compute_percentage(player_teams['fgMade'], player_teams['fgAttempted'])
+    player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])
+    player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])
+
+    # Playoffs Percentages
+    player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
+    player_teams['Postfg%'] = compute_percentage(player_teams['PostfgMade'], player_teams['PostfgAttempted'])
+    player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
+    player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
+
+    return player_teams
 
 def get_columns_to_remove():
-    return ['lgID', 'tmID', 'playerID','playoff']
+    return ['tmID', 'playerID','playoff','confID']
 
 def train_and_evaluate(df, years, i, classifier):
     train_years = years[:i+1]  # Use all years up to year i for training
@@ -88,22 +110,31 @@ def train_and_evaluate(df, years, i, classifier):
     proba = clf.predict_proba(X_test)[:, 1]
 
     team_avg_predictions = {}
-    for tmID, prob in zip(test['tmID'], proba):
+    for tmID, confID, prob in zip(test['tmID'], test['confID'], proba):
         if tmID not in team_avg_predictions:
-            team_avg_predictions[tmID] = []
-        team_avg_predictions[tmID].append(prob)
+            team_avg_predictions[tmID] = {"probs": [], "confID": confID}
+        team_avg_predictions[tmID]["probs"].append(prob)
+
+
+        # Select top 4 teams from each conference
+    east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
+    west_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'WE']
+
+    top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
+    top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
+
+    top_teams = top_east_teams + top_west_teams
 
     team_results = []
-    for tmID, probs in team_avg_predictions.items():
-        avg_prob = sum(probs) / len(probs)
-        prediction = 1 if avg_prob >= 0.5 else 0
+    for tmID, avg_prob in top_teams:
+        prediction = 1
         if tmID in actual['tmID'].values:
-            actual_value = actual[actual['tmID'] == tmID]['playoff'].iloc[0]  # Fetching actual data for year i+2
+            actual_value = actual[actual['tmID'] == tmID]['playoff'].iloc[0]
         else:
-            continue  # Skip this team if there's no data for year i+2
+            continue
         team_results.append({
             'tmID': tmID,
-            'Year': predict_year,  # Changed actual_year to predict_year
+            'Year': predict_year,
             'Classifier': classifier.__class__.__name__,
             'Predicted': prediction,
             'Probability': avg_prob,
@@ -111,8 +142,8 @@ def train_and_evaluate(df, years, i, classifier):
         })
         logging.info(f"Data added for team {tmID} in year {predict_year} using classifier {classifier.__class__.__name__}")
 
-
-    accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / len(team_results)
+    # Calculate accuracy
+    accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
 
     return team_results, accuracy
 
@@ -176,7 +207,7 @@ def plot_teams_comparison(prediction_data, classifier_name):
     plt.show()
 
 def train_model():
-    data_file_path = "../basketballPlayoffs/players_teams.csv"
+    data_file_path = "../ac/basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
 
     teams_df = get_teams_data()
