@@ -9,9 +9,9 @@ from sklearn.neural_network import MLPClassifier
 import seaborn as sns
 from sklearn.tree import DecisionTreeClassifier
 from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
-
 import warnings
-warnings.filterwarnings(action='ignore', category=FutureWarning)
+
+warnings.filterwarnings("ignore")
 
 
 logging.basicConfig(level=logging.INFO)
