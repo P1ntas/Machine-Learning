@@ -79,17 +79,22 @@ def train_and_evaluate(df, years, i, classifier):
     test_year = years[i+1]     # Testing on year i+1 
 
     if i+2 >= len(years): 
-        logging.info("Reached the last available year for testing. Stopping the process.")
+        #logging.info("Reached the last available year for testing. Stopping the process.")
         return None, None
 
     predict_year = years[i+2]  # Predicting for year i+2 
 
-    logging.info(f"Training years: {train_years}")
-    logging.info(f"Testing year: {test_year}, Predicting for: {predict_year}")
+    #logging.info(f"Training years: {train_years}")
+    #logging.info(f"Testing year: {test_year}, Predicting for: {predict_year}")
 
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
     actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
+
+    #print the teams that make the playoffs (playoff=1) on actual year, dont repeat teams
+    print("Actual Playoff Teams:")
+    print(actual[actual['playoff'] == 1]['tmID'].unique())
+
     
     remove_columns = get_columns_to_remove()
 
@@ -125,6 +130,24 @@ def train_and_evaluate(df, years, i, classifier):
 
     top_teams = top_east_teams + top_west_teams
 
+    #print the top 8 teams predicted to make the playoffs
+    print("Predicted Playoff Teams:")
+    print([team[0] for team in top_teams])
+
+    #total teams in predicted year
+
+    tp = len(set(actual[actual['playoff'] == 1]['tmID'].unique()) & set([team[0] for team in top_teams]))
+    fp = len(set(actual[actual['playoff'] == 0]['tmID'].unique()) & set([team[0] for team in top_teams]))
+    tn = len(set(actual[actual['playoff'] == 0]['tmID'].unique()) & set([team[0] for team in top_teams]))
+    fn = len(set(actual[actual['playoff'] == 1]['tmID'].unique()) & set([team[0] for team in top_teams]))
+
+    #print the confusion matrix
+    print("Confusion Matrix:")
+    print("TP: " + str(tp))
+    print("FP: " + str(fp))
+    print("TN: " + str(tn))
+    print("FN: " + str(fn))
+
     team_results = []
     for tmID, avg_prob in top_teams:
         prediction = 1
@@ -140,7 +163,7 @@ def train_and_evaluate(df, years, i, classifier):
             'Probability': avg_prob,
             'Actual': actual_value,
         })
-        logging.info(f"Data added for team {tmID} in year {predict_year} using classifier {classifier.__class__.__name__}")
+        #logging.info(f"Data added for team {tmID} in year {predict_year} using classifier {classifier.__class__.__name__}")
 
     # Calculate accuracy
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
