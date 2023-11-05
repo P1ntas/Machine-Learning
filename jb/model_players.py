@@ -10,6 +10,8 @@ import seaborn as sns
 from sklearn.tree import DecisionTreeClassifier
 from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
 import warnings
+from sklearn.model_selection import RandomizedSearchCV
+
 
 warnings.filterwarnings("ignore")
 
@@ -48,6 +50,18 @@ def get_sample_weights(train):
 def compute_percentage(numerator, denominator):
     return round(numerator.divide(denominator).where(denominator != 0, 0.0)*100,2)
 
+def aggregate_awards_counts(player_teams):
+    #get from awards_players.csv
+    awards_file_path = "../ac/basketballPlayoffs/awards_players.csv"
+    awards_df = read_data(awards_file_path)
+    #add a column prizeCount to player_teams on each year
+    player_teams['prizeCount'] = 0
+    #associate each player with each award and year (ex: player A won 2 awards in 2010, thus 2010 has 2, but 2011 is 0 (unless he wins again))
+    for index, row in awards_df.iterrows():
+        player_teams.loc[(player_teams['playerID'] == row['playerID']) & (player_teams['year'] == row['year']), 'prizeCount'] += 1
+    
+    return player_teams
+
 def merge_with_team_data(df, teams_df):
     player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
     #drop unneeded columns
@@ -68,6 +82,8 @@ def merge_with_team_data(df, teams_df):
     player_teams['Postfg%'] = compute_percentage(player_teams['PostfgMade'], player_teams['PostfgAttempted'])
     player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
     player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
+
+    player_teams = aggregate_awards_counts(player_teams)
 
     return player_teams
 
@@ -216,6 +232,17 @@ def plot_teams_comparison(prediction_data):
         plt.tight_layout()
         plt.show()
 
+def hyperparameter_tuning(classifier, param_distributions, X, y, n_iter=10, cv=5): #not used yet
+    # Initialize RandomizedSearchCV with the classifier, parameter distribution, and other settings
+    random_search = RandomizedSearchCV(
+        classifier, param_distributions, n_iter=n_iter, cv=cv, random_state=42, n_jobs=-1, verbose=1
+    )
+    # Fit the random search model
+    random_search.fit(X, y)
+    # Print best parameters and return the best estimator
+    logging.info(f"Best parameters found: {random_search.best_params_}")
+    return random_search.best_estimator_
+
 
 def train_model():
     data_file_path = "../ac/basketballPlayoffs/players_teams.csv"
@@ -242,7 +269,7 @@ def train_model():
 
             # Convert results to DataFrame and save or print as necessary
             results_df = pd.DataFrame(results)
-            results_df.to_csv(f'../predictions_results_{classifier_name}.csv', index=False)
+            results_df.to_csv(f'./jb/results/predictions_results_{classifier_name}.csv', index=False)
 
             # Print accuracy for each classifier or save to log
             logging.info(f"Completed training and evaluation for {classifier_name}")
