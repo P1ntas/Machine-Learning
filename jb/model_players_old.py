@@ -10,6 +10,7 @@ import seaborn as sns
 from sklearn.tree import DecisionTreeClassifier
 from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
 import warnings
+from lightgbm import LGBMClassifier
 
 warnings.filterwarnings("ignore")
 
@@ -93,7 +94,6 @@ def train_and_evaluate(df, years, i, classifier):
 
     train_before_indices_to_remove = []
     train_indices_to_remove = []
-
     #check if a player have a entry in the train df with the next year
     for index, row in train_before.iterrows():
         player_id = row['playerID']
@@ -287,7 +287,8 @@ def train_model():
             "KNN": KNeighborsClassifier(n_neighbors=3),
             "SVM": SVC(probability=True), # Enable probability estimates
             "DecisionTree": DecisionTreeClassifier(),
-            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1) # Multi-layer Perceptron classifier
+            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
+            "LGBM": LGBMClassifier(random_state=42)
         }
 
         results_dict = {}
