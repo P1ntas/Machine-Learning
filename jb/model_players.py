@@ -34,7 +34,7 @@ def pre_process_data(df):
     return df
 
 def get_teams_data():
-    teams_file_path = "../ac/basketballPlayoffs/teams.csv"
+    teams_file_path = "basketballPlayoffs/teams.csv"
     teams_df = read_data(teams_file_path)
     if teams_df is not None:
         return pre_process_data(teams_df)
@@ -75,25 +75,62 @@ def get_columns_to_remove():
     return ['tmID', 'playerID','playoff','confID']
 
 def train_and_evaluate(df, years, i, classifier):
-    train_years = years[:i+1]  # Use all years up to year i for training
-    test_year = years[i+1]     # Testing on year i+1 
+    train_years_before = years[:i]
+    train_years = years[1:i+1]  # Use all years up to year i for training
+    test_year = years[i]     # Testing on year i+1 
 
-    if i+2 >= len(years): 
+    if i + 1 > len(years): 
         return None, None
 
-    predict_year = years[i+2]  # Predicting for year i+2 
+    predict_year = years[i+1]  # Predicting for year i+2 
 
-
+    train_before = df[df['year'].isin(train_years_before)]
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
     actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
 
     test_player_ids = test['playerID'].copy()
 
-    
+    train_before_indices_to_remove = []
+    train_indices_to_remove = []
+
+    #check if a player have a entry in the train df with the next year
+    for index, row in train_before.iterrows():
+        player_id = row['playerID']
+        year = row['year'] + 1 
+        if row['stint'] > 1:
+            train_before_indices_to_remove.append(index)
+        elif not (((train['playerID'] == player_id) & (train['year'] == year)).any()):
+            data_to_add = {
+                'playerID': player_id, 
+                'year': year,        
+            }
+            new_row = pd.DataFrame(data_to_add, index=[0])
+            train = pd.concat([train, new_row], ignore_index=True)
+       
+
+    train_before = train_before.drop(train_before_indices_to_remove)
+    for index, row in train.iterrows():
+        player_id = row['playerID']
+        year = row['year'] - 1 
+        if row['stint'] > 1:
+            train_indices_to_remove.append(index)
+        elif not (((train_before['playerID'] == player_id) & (train_before['year'] == year)).any()):
+            data_to_add = {
+                'playerID': player_id, 
+                'year': year,        
+            }
+            new_row = pd.DataFrame(data_to_add, index=[0])
+            train_before = pd.concat([train_before , new_row], ignore_index=True)
+        
+    train = train.drop(train_indices_to_remove)
+    train.fillna(0, inplace=True)
+    train.sort_values(by='playerID', inplace=True)
+    train_before.fillna(0, inplace=True)
+    train_before.sort_values(by='playerID', inplace=True)
     remove_columns = get_columns_to_remove()
 
-    X_train = train.drop(remove_columns, axis=1)
+    X_train = train_before.drop(remove_columns, axis=1)
     X_test = test.drop(remove_columns, axis=1)
     y_train = train['playoff']
 
@@ -235,7 +272,7 @@ def plot_teams_comparison(prediction_data, classifier_name):
     plt.show()
 
 def train_model():
-    data_file_path = "../ac/basketballPlayoffs/players_teams.csv"
+    data_file_path = "basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
 
     teams_df = get_teams_data()
@@ -258,7 +295,7 @@ def train_model():
 
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(1, len(years) - 2):  # Adjust to ensure there's always a year to predict after the test year
+            for i in range(1, len(years) - 1):  # Adjust to ensure there's always a year to predict after the test year
                 team_results, accuracy = train_and_evaluate(df, years, i, classifier)
                 if team_results:  # Check if team_results is not None
                     prediction_data.extend(team_results)
