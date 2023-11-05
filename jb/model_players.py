@@ -126,6 +126,10 @@ def train_and_evaluate(df, years, i, classifier):
     for _, row in test_proba_with_ids.iterrows():
         player_id = row['playerID']
         if player_id in actual_players:
+            #stint must be <= 1 to be considered
+            if test[test['playerID'] == player_id]['stint'].max() > 1:
+                continue    
+
             prob = row['probability']
             # Get team ID and confID from the actual DataFrame
             team_id = actual.loc[actual['playerID'] == player_id, 'tmID'].iloc[0]
