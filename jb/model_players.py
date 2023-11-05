@@ -115,6 +115,8 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
 
     east_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'EA']
     west_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'WE']
+    
+    all_teams = east_teams + west_teams
 
     top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
     top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
@@ -122,11 +124,13 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
     top_teams = top_east_teams + top_west_teams
 
     team_results = []
-    for tmID, avg_prob in top_teams:
+
+    for tmID, avg_prob in all_teams:
         actual_playoff = actual[actual['tmID'] == tmID]['playoff'].iloc[0] if tmID in actual['tmID'].values else 0
+        predicted_playoff = 1 if (tmID, avg_prob) in top_teams else 0
         team_results.append({
             'tmID': tmID,
-            'Predicted': 1,
+            'Predicted': predicted_playoff,
             'Probability': avg_prob,
             'Actual': actual_playoff,
             'Year': actual['year'].iloc[0],
@@ -276,7 +280,8 @@ def train_model():
             # Print accuracy for each classifier or save to log
             logging.info(f"Completed training and evaluation for {classifier_name}")
 
-        plot_teams_comparison(total_results)
+
+    plot_teams_comparison(total_results)
 
 if __name__ == "__main__":
     train_model()
