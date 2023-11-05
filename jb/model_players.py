@@ -88,11 +88,6 @@ def train_and_evaluate(df, years, i, classifier):
     test = df[df['year'] == test_year]
     actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
 
-    #print the teams that make the playoffs (playoff=1) on actual year, dont repeat teams
-    #print("Actual Playoff Teams:")
-    #print(actual[actual['playoff'] == 1]['tmID'].unique())
-
-     # Make a copy of the playerID before removing it for training
     test_player_ids = test['playerID'].copy()
 
     
@@ -115,23 +110,36 @@ def train_and_evaluate(df, years, i, classifier):
     # Predict probabilities for the test set
     proba = clf.predict_proba(X_test)[:, 1]
 
-    # Combine the predicted probabilities with the player IDs
-    test_proba_with_ids = pd.DataFrame({'playerID': test_player_ids, 'probability': proba})
+    # Initialize team_avg_predictions with all teams from the actual_year
+    team_avg_predictions = {tmID: {'probs': [], 'confID': confID} for tmID, confID in zip(actual['tmID'], actual['confID'])}
 
-    # Filter this DataFrame to only include players who are also in the actual_year dataset
+    # Store probabilities in a DataFrame along with player IDs from the test set
+    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
+
+    # Get actual player IDs to filter the test set
     actual_players = actual['playerID'].unique()
-    test_proba_with_ids = test_proba_with_ids[test_proba_with_ids['playerID'].isin(actual_players)]
 
-    # Calculate the average probability for each team based on the players' probabilities
-    team_avg_predictions = {}
+    #define default probability as the average probability of all players in the test set
+    default_probability = test_proba_with_ids['probability'].mean()
+
+    # Update the probabilities for each team based on the actual year players
     for _, row in test_proba_with_ids.iterrows():
         player_id = row['playerID']
-        prob = row['probability']
-        # Get the team ID from the original test dataframe
-        team_id = test.loc[test['playerID'] == player_id, 'tmID'].iloc[0]
-        if team_id not in team_avg_predictions:
-            team_avg_predictions[team_id] = {'probs': [], 'confID': test.loc[test['playerID'] == player_id, 'confID'].iloc[0]}
-        team_avg_predictions[team_id]['probs'].append(prob)
+        if player_id in actual_players:
+            prob = row['probability']
+            # Get team ID and confID from the actual DataFrame
+            team_id = actual.loc[actual['playerID'] == player_id, 'tmID'].iloc[0]
+            confID = actual.loc[actual['playerID'] == player_id, 'confID'].iloc[0]
+            team_avg_predictions[team_id]['probs'].append(prob)
+            # Ensure the confID is set for the team
+            team_avg_predictions[team_id]['confID'] = confID
+
+    # Calculate the average probability for teams that have players from the test set
+    for tmID, data in team_avg_predictions.items():
+        if data['probs']:  # If there are probabilities listed, calculate the average
+            data['avg_prob'] = sum(data['probs']) / len(data['probs'])
+        else:  # For teams with no players from the test set, decide how to handle
+            data['avg_prob'] = default_probability
 
     # Select top 4 teams from each conference
     east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
@@ -157,7 +165,6 @@ def train_and_evaluate(df, years, i, classifier):
             'Probability': avg_prob,
             'Actual': actual_value,
         })
-        #logging.info(f"Data added for team {tmID} in year {predict_year} using classifier {classifier.__class__.__name__}")
 
     # Calculate accuracy
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
@@ -239,7 +246,7 @@ def train_model():
             "KNN": KNeighborsClassifier(n_neighbors=3),
             "SVM": SVC(probability=True), # Enable probability estimates
             "DecisionTree": DecisionTreeClassifier(),
-            
+            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1) # Multi-layer Perceptron classifier
         }
 
         results_dict = {}
