@@ -75,7 +75,19 @@ def merge_with_team_data(df, teams_df):
 def get_columns_to_remove():
     return ['tmID', 'playerID','playoff','confID']
 
+def players_awards(df):
+    award_path = "basketballPlayoffs/awards_players.csv"
+    players_awards = read_data(award_path)
+    merged_df = df.merge(players_awards.groupby(['playerID', 'year'])['award'].count().reset_index(),
+                         on=['playerID', 'year'], how='left')
+    
+    merged_df.rename(columns={'award': 'awards_count'}, inplace=True)
+    merged_df.fillna(0, inplace=True)
+    return merged_df 
+
+
 def train_and_evaluate(df, years, i, classifier):
+    df = players_awards(df)
     train_years_before = years[:i]
     train_years = years[1:i+1]  # Use all years up to year i for training
     test_year = years[i]     # Testing on year i+1 
