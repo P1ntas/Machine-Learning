@@ -79,21 +79,21 @@ def train_and_evaluate(df, years, i, classifier):
     test_year = years[i+1]     # Testing on year i+1 
 
     if i+2 >= len(years): 
-        #logging.info("Reached the last available year for testing. Stopping the process.")
         return None, None
 
     predict_year = years[i+2]  # Predicting for year i+2 
 
-    #logging.info(f"Training years: {train_years}")
-    #logging.info(f"Testing year: {test_year}, Predicting for: {predict_year}")
 
     train = df[df['year'].isin(train_years)]
     test = df[df['year'] == test_year]
     actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
 
     #print the teams that make the playoffs (playoff=1) on actual year, dont repeat teams
-    print("Actual Playoff Teams:")
-    print(actual[actual['playoff'] == 1]['tmID'].unique())
+    #print("Actual Playoff Teams:")
+    #print(actual[actual['playoff'] == 1]['tmID'].unique())
+
+     # Make a copy of the playerID before removing it for training
+    test_player_ids = test['playerID'].copy()
 
     
     remove_columns = get_columns_to_remove()
@@ -112,16 +112,28 @@ def train_and_evaluate(df, years, i, classifier):
     else:
         clf.fit(X_train, y_train, sample_weight=sample_weights)
     
+    # Predict probabilities for the test set
     proba = clf.predict_proba(X_test)[:, 1]
 
+    # Combine the predicted probabilities with the player IDs
+    test_proba_with_ids = pd.DataFrame({'playerID': test_player_ids, 'probability': proba})
+
+    # Filter this DataFrame to only include players who are also in the actual_year dataset
+    actual_players = actual['playerID'].unique()
+    test_proba_with_ids = test_proba_with_ids[test_proba_with_ids['playerID'].isin(actual_players)]
+
+    # Calculate the average probability for each team based on the players' probabilities
     team_avg_predictions = {}
-    for tmID, confID, prob in zip(test['tmID'], test['confID'], proba):
-        if tmID not in team_avg_predictions:
-            team_avg_predictions[tmID] = {"probs": [], "confID": confID}
-        team_avg_predictions[tmID]["probs"].append(prob)
+    for _, row in test_proba_with_ids.iterrows():
+        player_id = row['playerID']
+        prob = row['probability']
+        # Get the team ID from the original test dataframe
+        team_id = test.loc[test['playerID'] == player_id, 'tmID'].iloc[0]
+        if team_id not in team_avg_predictions:
+            team_avg_predictions[team_id] = {'probs': [], 'confID': test.loc[test['playerID'] == player_id, 'confID'].iloc[0]}
+        team_avg_predictions[team_id]['probs'].append(prob)
 
-
-        # Select top 4 teams from each conference
+    # Select top 4 teams from each conference
     east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
     west_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'WE']
 
@@ -129,24 +141,6 @@ def train_and_evaluate(df, years, i, classifier):
     top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
 
     top_teams = top_east_teams + top_west_teams
-
-    #print the top 8 teams predicted to make the playoffs
-    print("Predicted Playoff Teams:")
-    print([team[0] for team in top_teams])
-
-    #total teams in predicted year
-
-    tp = len(set(actual[actual['playoff'] == 1]['tmID'].unique()) & set([team[0] for team in top_teams]))
-    fp = len(set(actual[actual['playoff'] == 0]['tmID'].unique()) & set([team[0] for team in top_teams]))
-    tn = len(set(actual[actual['playoff'] == 0]['tmID'].unique()) & set([team[0] for team in top_teams]))
-    fn = len(set(actual[actual['playoff'] == 1]['tmID'].unique()) & set([team[0] for team in top_teams]))
-
-    #print the confusion matrix
-    print("Confusion Matrix:")
-    print("TP: " + str(tp))
-    print("FP: " + str(fp))
-    print("TN: " + str(tn))
-    print("FN: " + str(fn))
 
     team_results = []
     for tmID, avg_prob in top_teams:
@@ -263,9 +257,6 @@ def train_model():
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
 
-        #make a selector to print or the barchart or the heatmap
-        for classifier_name in classifiers:
-            plot_teams_comparison(prediction_data, classifier_name)
         selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
         if selector == 'b':
             plot_bar_chart(predictions_df)
