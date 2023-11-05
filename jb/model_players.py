@@ -83,6 +83,9 @@ def merge_with_team_data(df, teams_df):
     player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
     player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
 
+    #remove unneeded columns
+    player_teams.drop(['ftMade', 'ftAttempted', 'fgMade', 'fgAttempted', 'threeMade', 'threeAttempted', 'GS', 'GP', 'PostftMade', 'PostftAttempted', 'PostfgMade', 'PostfgAttempted', 'PostthreeMade', 'PostthreeAttempted', 'PostGS', 'PostGP'], axis=1, inplace=True)
+
     player_teams = aggregate_awards_counts(player_teams)
 
     return player_teams
@@ -113,18 +116,17 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
     east_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'EA']
     west_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'WE']
 
-    top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:8]
-    top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:8]
+    top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
+    top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
 
     top_teams = top_east_teams + top_west_teams
 
     team_results = []
     for tmID, avg_prob in top_teams:
         actual_playoff = actual[actual['tmID'] == tmID]['playoff'].iloc[0] if tmID in actual['tmID'].values else 0
-        predicted_playoff = 1 if avg_prob > 0.5 else 0
         team_results.append({
             'tmID': tmID,
-            'Predicted': predicted_playoff,
+            'Predicted': 1,
             'Probability': avg_prob,
             'Actual': actual_playoff,
             'Year': actual['year'].iloc[0],
