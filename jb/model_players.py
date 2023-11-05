@@ -74,165 +74,148 @@ def merge_with_team_data(df, teams_df):
 def get_columns_to_remove():
     return ['tmID', 'playerID','playoff','confID']
 
-def train_and_evaluate(df, years, i, classifier):
-    train_years = years[:i+1]  # Use all years up to year i for training
-    test_year = years[i+1]     # Testing on year i+1 
-
-    if i+2 >= len(years): 
-        return None, None
-
-    predict_year = years[i+2]  # Predicting for year i+2 
-
-
-    train = df[df['year'].isin(train_years)]
-    test = df[df['year'] == test_year]
-    actual = df[df['year'] == predict_year]  # Changed actual_year to predict_year
-
-    test_player_ids = test['playerID'].copy()
-
-    
-    remove_columns = get_columns_to_remove()
-
-    X_train = train.drop(remove_columns, axis=1)
-    X_test = test.drop(remove_columns, axis=1)
-    y_train = train['playoff']
-
-    # Get sample weights
-    sample_weights = get_sample_weights(train)
-
-    clf = classifier
-
-    if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
-        clf.fit(X_train, y_train)
-    else:
-        clf.fit(X_train, y_train, sample_weight=sample_weights)
-    
-    # Predict probabilities for the test set
-    proba = clf.predict_proba(X_test)[:, 1]
-
-    # Initialize team_avg_predictions with all teams from the actual_year
+def evaluate_predictions(test_proba_with_ids, actual, default_probability, classifier_name):
     team_avg_predictions = {tmID: {'probs': [], 'confID': confID} for tmID, confID in zip(actual['tmID'], actual['confID'])}
 
-    # Store probabilities in a DataFrame along with player IDs from the test set
-    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
-
-    # Get actual player IDs to filter the test set
-    actual_players = actual['playerID'].unique()
-
-    #define default probability as the average probability of all players in the test set
-    default_probability = test_proba_with_ids['probability'].mean()
-
-    # Update the probabilities for each team based on the actual year players
     for _, row in test_proba_with_ids.iterrows():
         player_id = row['playerID']
-        if player_id in actual_players:
-            #stint must be <= 1 to be considered
-            if test[test['playerID'] == player_id]['stint'].max() > 1:
-                continue    
-
+        if player_id in actual['playerID'].unique():
+            if actual[actual['playerID'] == player_id]['stint'].max() > 1:
+                continue  # Skip players that have been traded mid-season
             prob = row['probability']
-            # Get team ID and confID from the actual DataFrame
-            team_id = actual.loc[actual['playerID'] == player_id, 'tmID'].iloc[0]
-            confID = actual.loc[actual['playerID'] == player_id, 'confID'].iloc[0]
+            team_id = actual[actual['playerID'] == player_id]['tmID'].iloc[0]
+            confID = actual[actual['playerID'] == player_id]['confID'].iloc[0]
             team_avg_predictions[team_id]['probs'].append(prob)
-            # Ensure the confID is set for the team
             team_avg_predictions[team_id]['confID'] = confID
 
-    # Calculate the average probability for teams that have players from the test set
     for tmID, data in team_avg_predictions.items():
-        if data['probs']:  # If there are probabilities listed, calculate the average
+        if data['probs']:
             data['avg_prob'] = sum(data['probs']) / len(data['probs'])
-        else:  # For teams with no players from the test set, decide how to handle
+        else:
             data['avg_prob'] = default_probability
 
-    # Select top 4 teams from each conference
-    east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
-    west_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'WE']
+    east_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'EA']
+    west_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'WE']
 
-    top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
-    top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
+    top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:8]
+    top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:8]
 
     top_teams = top_east_teams + top_west_teams
 
     team_results = []
     for tmID, avg_prob in top_teams:
-        prediction = 1
-        if tmID in actual['tmID'].values:
-            actual_value = actual[actual['tmID'] == tmID]['playoff'].iloc[0]
-        else:
-            continue
+        actual_playoff = actual[actual['tmID'] == tmID]['playoff'].iloc[0] if tmID in actual['tmID'].values else 0
+        predicted_playoff = 1 if avg_prob > 0.5 else 0
         team_results.append({
             'tmID': tmID,
-            'Year': predict_year,
-            'Classifier': classifier.__class__.__name__,
-            'Predicted': prediction,
+            'Predicted': predicted_playoff,
             'Probability': avg_prob,
-            'Actual': actual_value,
+            'Actual': actual_playoff,
+            'Year': actual['year'].iloc[0],
+            'Classifier': classifier_name
         })
 
-    # Calculate accuracy
-    accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
+    correct_predictions = sum(1 for result in team_results if result['Predicted'] == result['Actual'])
+    total_predictions = len(team_results)
+    accuracy = correct_predictions / total_predictions if total_predictions > 0 else 0
 
     return team_results, accuracy
 
-def plot_teams_comparison(prediction_data, classifier_name):
-    # Organize the data by years, and then by actual vs predicted
+def train_and_evaluate(df, years, classifier):
+    cumulative_train = pd.DataFrame()
+    results = []
+
+    for i in range(len(years) - 2):
+        train_years = years[:i+1]
+        test_year = years[i+1]
+        predict_year = years[i+2]
+
+        # Adding new year data to cumulative train data
+        cumulative_train = cumulative_train._append(df[df['year'].isin(train_years)])
+
+        test = df[df['year'] == test_year]
+        actual = df[df['year'] == predict_year]
+
+        remove_columns = get_columns_to_remove()
+        X_train = cumulative_train.drop(remove_columns, axis=1)
+        y_train = cumulative_train['playoff']
+        X_test = test.drop(remove_columns, axis=1)
+
+        sample_weights = get_sample_weights(cumulative_train)
+
+        # Train classifier
+        if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
+            classifier.fit(X_train, y_train)
+        else:
+            classifier.fit(X_train, y_train, sample_weight=sample_weights)
+
+        # Predict probabilities for the test set
+        proba = classifier.predict_proba(X_test)[:, 1]
+        test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
+
+        # Define default probability
+        default_probability = test_proba_with_ids['probability'].mean()
+
+        # Evaluate predictions
+        team_results, accuracy = evaluate_predictions(test_proba_with_ids, actual, default_probability, classifier.__class__.__name__)
+        results.extend(team_results)
+
+        # Here you might want to save or print the accuracy for this iteration
+        print(f"Year: {predict_year}, Accuracy: {accuracy:.2f}")
+
+    return results
+
+def plot_teams_comparison(prediction_data):
+    # Organize the data by years and classifiers, then by actual vs predicted
     organized_data = {}
 
-    unique_years = sorted(list(set([entry['Year'] for entry in prediction_data])))
+    unique_years = sorted(set(entry['Year'] for entry in prediction_data))
+    classifiers = sorted(set(entry['Classifier'] for entry in prediction_data))
 
-    for year in unique_years:
-        year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Classifier'] == classifier_name]
-        if not year_data:  # If no data for the year, continue to the next
-            logging.warning(f"No data available for year {year} for classifier {classifier_name}.")
-            continue
+    for classifier_name in classifiers:
+        for year in unique_years:
+            year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Classifier'] == classifier_name]
+            if not year_data:
+                logging.warning(f"No data available for year {year} for classifier {classifier_name}.")
+                continue
 
-        # Get actual playoff teams
-        actual_teams = [entry['tmID'] for entry in year_data if entry['Actual'] == 1]
-        if not actual_teams:
-            logging.warning(f"No actual playoff teams found for year {year}.")
+            actual_teams = [entry['tmID'] for entry in year_data if entry['Actual'] == 1]
+            predicted_teams = [entry['tmID'] for entry in year_data if entry['Predicted'] == 1]
+            
+            correct_predictions = sum(entry['Predicted'] == entry['Actual'] for entry in year_data)
+            accuracy = correct_predictions / len(year_data) if year_data else 0
 
-        # Get the top 8 predicted teams
-        year_data_sorted = sorted(year_data, key=lambda x: x['Probability'], reverse=True)
-        predicted_teams = [entry['tmID'] for entry in year_data_sorted[:8]]
-        if not predicted_teams:
-            logging.warning(f"No teams predicted for playoffs in year {year}.")
-
-        # Calculate accuracy for this year
-        correct_predictions = len(set(actual_teams) & set(predicted_teams))
-        accuracy = correct_predictions / 8  # As 8 teams make the playoffs
-
-        organized_data[year] = {
-            'Actual': actual_teams,
-            'Predicted': predicted_teams,
-            'Accuracy': accuracy
-        }
+            organized_data[(classifier_name, year)] = {
+                'Actual': ', '.join(actual_teams),
+                'Predicted': ', '.join(predicted_teams),
+                'Accuracy': f"{accuracy:.2%}"
+            }
 
     if not organized_data:
-        logging.error(f"No data to plot for classifier {classifier_name}.")
+        logging.error(f"No data to plot.")
         return
 
-    # Increase the size of the figure
-    fig, ax = plt.subplots(figsize=(14, 8))  # Adjust the figsize values as necessary
+    # Create table data for each classifier
+    for classifier_name in classifiers:
+        fig, ax = plt.subplots(figsize=(14, 8))
+        ax.axis('off')
+        ax.axis('tight')
 
-    # Hide axes
-    ax.axis('off')
-    ax.axis('tight')
+        table_data = [['Year', 'Actual Teams', 'Predicted Teams', 'Accuracy']]
+        for year in unique_years:
+            key = (classifier_name, year)
+            if key in organized_data:
+                data = organized_data[key]
+                table_data.append([year, data['Actual'], data['Predicted'], data['Accuracy']])
 
-    table_data = [['Year', 'Actual Teams', 'Predicted Teams', 'Accuracy']]
-    for year, data in organized_data.items():
-        table_data.append([year, ', '.join(data['Actual']), ', '.join(data['Predicted']), f"{data['Accuracy']:.2f}"])
+        table = ax.table(cellText=table_data, cellLoc='center', loc='center', colWidths=[0.1, 0.3, 0.3, 0.1])
+        table.auto_set_font_size(False)
+        table.set_fontsize(8)
+        ax.set_title(f'Comparison of Actual vs Predicted Playoff Teams ({classifier_name})', fontsize=14, pad=20)
 
-    # Create table
-    table = ax.table(cellText=table_data, cellLoc='center', loc='center')
+        plt.tight_layout()
+        plt.show()
 
-    # Adjust font size for all cells
-    table.auto_set_font_size(False)
-    table.set_fontsize(8)  # Adjust the fontsize value as necessary
-
-    plt.title(f'Comparison of Actual vs Predicted Playoff Teams ({classifier_name})', fontsize=14)  # Adjust title fontsize if needed
-    plt.tight_layout()  # Ensure layout is tight and no content is clipped
-    plt.show()
 
 def train_model():
     data_file_path = "../ac/basketballPlayoffs/players_teams.csv"
@@ -242,41 +225,29 @@ def train_model():
     if df is not None and teams_df is not None:
         df = merge_with_team_data(df, teams_df)
         
-        years = df['year'].unique()
-        years.sort()
+        years = sorted(df['year'].unique())
 
         classifiers = {
-            "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
             "KNN": KNeighborsClassifier(n_neighbors=3),
-            "SVM": SVC(probability=True), # Enable probability estimates
             "DecisionTree": DecisionTreeClassifier(),
-            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1) # Multi-layer Perceptron classifier
+            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
         }
 
-        results_dict = {}
-        prediction_data = []
+        total_results = []
 
         for classifier_name, classifier in classifiers.items():
-            results = []
-            for i in range(1, len(years) - 2):  # Adjust to ensure there's always a year to predict after the test year
-                team_results, accuracy = train_and_evaluate(df, years, i, classifier)
-                if team_results:  # Check if team_results is not None
-                    prediction_data.extend(team_results)
-                    results.append(accuracy)
-                    results_dict[classifier_name] = results
+            logging.info(f"Training and evaluating with {classifier_name}")
+            results = train_and_evaluate(df, years, classifier)
+            total_results += results
 
-        predictions_df = pd.DataFrame(prediction_data)
-        predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
+            # Convert results to DataFrame and save or print as necessary
+            results_df = pd.DataFrame(results)
+            results_df.to_csv(f'../predictions_results_{classifier_name}.csv', index=False)
 
-        selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
-        if selector == 'b':
-            plot_bar_chart(predictions_df)
-        elif selector == 'h':
-            plot_heatmaps(predictions_df)
-        elif selector == 'l':
-            plot_line_chart(predictions_df)
-        else:
-            print("Invalid input. Please try again.")
+            # Print accuracy for each classifier or save to log
+            logging.info(f"Completed training and evaluation for {classifier_name}")
+
+        plot_teams_comparison(total_results)
 
 if __name__ == "__main__":
     train_model()
