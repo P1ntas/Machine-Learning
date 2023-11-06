@@ -211,11 +211,6 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
 
     top_teams = top_east_teams + top_west_teams
 
-    #print("Year: ", actual['year'].iloc[0])
-    #print(f"Top teams: {top_teams}")
-    #print(f"All teams: {all_teams}")
-
-
     team_results = []
 
     for tmID, avg_prob in all_teams:
