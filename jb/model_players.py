@@ -11,9 +11,17 @@ from sklearn.tree import DecisionTreeClassifier
 import warnings
 from sklearn.model_selection import RandomizedSearchCV
 from lightgbm import LGBMClassifier
+from sklearn.model_selection import GridSearchCV
+from skopt import BayesSearchCV
+
 
 
 warnings.filterwarnings("ignore")
+
+#ignore all possible warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
 
 
 logging.basicConfig(level=logging.INFO)
@@ -63,7 +71,7 @@ def aggregate_awards_counts(player_teams):
     return player_teams
 
 def merge_with_team_data(df, teams_df):
-    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
+    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound','semis','finals']], on=['tmID', 'year'], how='left')
     #drop unneeded columns
     player_teams.drop('lgID', axis=1, inplace=True)
 
@@ -74,6 +82,23 @@ def merge_with_team_data(df, teams_df):
     #add position column, get it from players.csv
     players_file_path = "../ac/basketballPlayoffs/players.csv"
     players_df = read_data(players_file_path)
+
+    #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
+
+    player_teams['playoff_exit'] = 0
+    player_teams.loc[(player_teams['firstRound'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 1
+    player_teams.loc[(player_teams['semis'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 2
+    player_teams.loc[(player_teams['finals'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 3
+    player_teams.loc[(player_teams['playoff'] == 1) & (player_teams['playoff_exit'] == 0), 'playoff_exit'] = 4
+
+    #remove unneeded columns
+    player_teams.drop(['firstRound','semis','finals'], axis=1, inplace=True)
+
+    #add a huge penalty for players that lost in the first round and no playoffs,  a smaller penalty for players that lost in the semis and finals, and bonus for players that won
+    player_teams.loc[player_teams['playoff_exit'] == 1, 'playoff_exit'] *= 1.5
+    player_teams.loc[player_teams['playoff_exit'] == 2, 'playoff_exit'] *= 2
+    player_teams.loc[player_teams['playoff_exit'] == 3, 'playoff_exit'] *= 5
+    player_teams.loc[player_teams['playoff_exit'] == 4, 'playoff_exit'] *= 5
 
     player_postion = players_df[['bioID', 'pos']]
 
@@ -86,15 +111,13 @@ def merge_with_team_data(df, teams_df):
     player_teams['time_in_playoffs'] = player_teams['playoff'].cumsum()
 
     #multiply by 1.5 the time in playoffs
-    player_teams['time_in_playoffs'] *= 10
-
-    #print(player_teams.head(20))
+    player_teams['time_in_playoffs'] *= 1.5
 
     # Regular Season Percentages
-    player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])*5
+    player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
     player_teams['fg%'] = compute_percentage(player_teams['fgMade'], player_teams['fgAttempted'])
     player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])
-    player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])
+    player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])*0.5
 
     # Playoffs Percentages
     player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
@@ -130,11 +153,11 @@ def merge_with_team_data(df, teams_df):
 
 
     #per 36 minutes stats
-    player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes']) * 36
+    player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
 
     #defensive prowess: Defensive Prowess PCA: Use 'steals', 'blocks', and 'dRebounds' to create a 'Defensive Impact' principal component. Combine 'PF' (personal fouls) and 'turnovers' into a 'Defensive Discipline' component to represent careful play.
-    player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP']) * 5
-    player_teams['defensive_discipline'] = compute_percentage(player_teams['PF'] + player_teams['turnovers'], player_teams['GP'])*5
+    player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP'])*10
+    player_teams['defensive_discipline'] = compute_percentage(player_teams['PF'] + player_teams['turnovers'], player_teams['GP'])*2
     
     #defensive rebounds percentage
     player_teams['drb%'] = compute_percentage(player_teams['dRebounds'], player_teams['rebounds'])
@@ -148,7 +171,7 @@ def merge_with_team_data(df, teams_df):
     player_teams = aggregate_awards_counts(player_teams)
 
     #multiply by 1.5 the awards count
-    player_teams['prizeCount'] *= 1.5
+    player_teams['prizeCount']
 
     return player_teams
 
@@ -172,7 +195,7 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
     # Calculate the average probability using only the top 5 players
     for tmID, data in team_avg_predictions.items():
         if data['probs']:
-            top_probs = sorted(data['probs'], reverse=True)[:6]  # Sort and pick top 6
+            top_probs = sorted(data['probs'], reverse=True)  # Sort and pick top 6
             data['avg_prob'] = sum(top_probs) / len(top_probs)
         else:
             data['avg_prob'] = default_probability
@@ -180,13 +203,18 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
 
     east_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'EA']
     west_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'WE']
-    
+
     all_teams = east_teams + west_teams
 
     top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
     top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
 
     top_teams = top_east_teams + top_west_teams
+
+    #print("Year: ", actual['year'].iloc[0])
+    #print(f"Top teams: {top_teams}")
+    #print(f"All teams: {all_teams}")
+
 
     team_results = []
 
@@ -208,9 +236,39 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
 
     return team_results, accuracy
 
+
 def train_and_evaluate(df, years, classifier):
     cumulative_train = pd.DataFrame()
     results = []
+
+    # Define parameter distributions for each classifier type
+    param_dists = {
+        RandomForestClassifier: {
+            'n_estimators': [25, 50, 100, 150],
+            'max_features': ['sqrt', 'log2', None],
+            'max_depth': [3, 6, 9],
+            'max_leaf_nodes': [3, 6, 9],
+        },
+        KNeighborsClassifier: {
+            'n_neighbors': [3, 5, 7, 9, 11],
+            'weights': ['uniform', 'distance'],
+            'metric': ['euclidean', 'manhattan']
+        },
+        SVC: {
+            'C': [0.1, 1, 10, 100],
+            'gamma': [0.01, 0.1, 1, 10],
+            'kernel': ['rbf', 'poly', 'sigmoid']
+        },
+        DecisionTreeClassifier: {
+            'criterion': ['gini', 'entropy'],
+            'max_depth': [3, 6, 9],
+            'max_leaf_nodes': [3, 6, 9],
+            'min_samples_split': [2, 3, 4]
+        },
+        MLPClassifier: {
+            'hidden_layer_sizes': [(50, 50, 50), (50, 100, 50), (100,)],
+        }
+    }
 
     for i in range(len(years) - 2):
         train_years = years[:i+1]
@@ -218,7 +276,7 @@ def train_and_evaluate(df, years, classifier):
         predict_year = years[i+2]
 
         # Adding new year data to cumulative train data
-        cumulative_train = cumulative_train._append(df[df['year'].isin(train_years)])
+        cumulative_train = cumulative_train._append(df[df['year'].isin(train_years)], ignore_index=True)
 
         test = df[df['year'] == test_year]
         actual = df[df['year'] == predict_year]
@@ -230,27 +288,25 @@ def train_and_evaluate(df, years, classifier):
 
         sample_weights = get_sample_weights(cumulative_train)
 
-        param_dist = {
-            'n_estimators': [25, 50, 100, 150],
-            'max_features': ['sqrt', 'log2', None],
-            'max_depth': [3, 6, 9],
-            'max_leaf_nodes': [3, 6, 9],
-        }
+        # Get the parameter distribution based on the classifier type
+        param_dist = param_dists.get(type(classifier), {})
+        
+        # Define the classifier
 
-        # RandomizedSearchCV
-        #print("CLASS:\n",classifier)
-        #clf = RandomizedSearchCV(classifier, param_dist, cv=3, scoring='accuracy', n_iter=100, n_jobs=-1)
-        #clf.fit(X_train, y_train, sample_weight=sample_weights)
-        #classifier = clf.best_estimator_
+        #clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+        #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+        clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1, n_iter=20)
 
 
-        # Train classifier
-        if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
-            classifier.fit(X_train, y_train)
+        if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier or type(classifier) == LogisticRegression or type(classifier) == LGBMClassifier:
+            clf.fit(X_train, y_train)
         else:
-            classifier.fit(X_train, y_train, sample_weight=sample_weights)
+            clf.fit(X_train, y_train, sample_weight=sample_weights)
+        
+        # Update classifier to be the best estimator
+        classifier = clf.best_estimator_
 
-        # Predict probabilities for the test set
+        # Predict probabilities for the test set using the best estimator
         proba = classifier.predict_proba(X_test)[:, 1]
         test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
 
@@ -266,6 +322,7 @@ def train_and_evaluate(df, years, classifier):
 
     return results
 
+
 def plot_accuracy_over_time(prediction_data):
     unique_years = sorted(set(entry['Year'] for entry in prediction_data))
     classifiers = sorted(set(entry['Classifier'] for entry in prediction_data))
@@ -279,15 +336,16 @@ def plot_accuracy_over_time(prediction_data):
             year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Classifier'] == classifier]
             correct_predictions = sum(entry['Predicted'] == entry['Actual'] for entry in year_data)
             accuracy = correct_predictions / len(year_data) if year_data else 0
+            print(f"Year: {year}, Classifier: {classifier}, Accuracy: {accuracy:.2f}, Num Predictions: {len(year_data)}, Num Correct: {correct_predictions}")
             accuracy_data[classifier].append(accuracy)
-
     # Plotting
     fig, ax = plt.subplots(figsize=(12, 6))
     for classifier, accuracies in accuracy_data.items():
-        ax.plot(unique_years, accuracies, label=classifier)
+        ax.plot(unique_years, accuracies, label=classifier, marker='x')
 
     ax.set_xlabel('Year')
     ax.set_ylabel('Accuracy')
+    #make an x at each point
     ax.set_title('Classifier Accuracy Over Time')
     ax.legend()
 
@@ -367,13 +425,13 @@ def train_model():
         years = sorted(df['year'].unique())
 
         classifiers = {
-            "RandomForest": RandomForestClassifier(n_estimators=100, max_depth=2, random_state=15),
-            "KNN": KNeighborsClassifier(n_neighbors=3),
+            "RandomForest": RandomForestClassifier(),
+            #"KNN": KNeighborsClassifier(n_neighbors=3),
             #"SVM": SVC(probability=True), # Enable probability estimates
-            "DecisionTree": DecisionTreeClassifier(),
-            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
+            #"DecisionTree": DecisionTreeClassifier(),
+            #"MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
             #"LGBM": LGBMClassifier(random_state=42),
-            #"LogisticRegression": LogisticRegression(random_state=42)
+            #"LogisticRegression": LogisticRegression()
         }
 
         total_results = []
@@ -381,6 +439,7 @@ def train_model():
         for classifier_name, classifier in classifiers.items():
             logging.info(f"Training and evaluating with {classifier_name}")
             results = train_and_evaluate(df, years, classifier)
+
             total_results += results
 
             # Convert results to DataFrame and save or print as necessary
@@ -392,6 +451,7 @@ def train_model():
 
 
     #plot_teams_comparison(total_results)
+    #print(total_results)
     plot_accuracy_over_time(total_results)
 
 if __name__ == "__main__":
