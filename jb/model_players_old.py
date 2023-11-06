@@ -8,11 +8,16 @@ from sklearn.svm import SVC
 from sklearn.neural_network import MLPClassifier
 import seaborn as sns
 from sklearn.tree import DecisionTreeClassifier
+from skopt import BayesSearchCV
 from model_plot import plot_heatmaps, plot_bar_chart, plot_line_chart
 import warnings
 from lightgbm import LGBMClassifier
+from sklearn.ensemble import BaggingClassifier
+from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 warnings.filterwarnings("ignore")
+warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
 
 
 logging.basicConfig(level=logging.INFO)
@@ -62,19 +67,21 @@ def aggregate_awards_counts(player_teams):
     return player_teams
 
 def merge_with_team_data(df, teams_df):
+
+    # temp_player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
+    # temp_player_teams.drop('lgID', axis=1, inplace=True)
+
+    # return temp_player_teams
+    
     player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound','semis','finals']], on=['tmID', 'year'], how='left')
+    #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
+
     #drop unneeded columns
     player_teams.drop('lgID', axis=1, inplace=True)
 
     # Assuming you have a column 'year' to sort by
     player_teams = player_teams.sort_values(by=['playerID', 'year'])
     player_teams['career_year'] = player_teams.groupby('playerID').cumcount() + 1
-
-    #add position column, get it from players.csv
-    players_file_path = "../ac/basketballPlayoffs/players.csv"
-    players_df = read_data(players_file_path)
-
-    #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
 
     #swap all the W and L in firstRound, semis, finals columns for 1 and 0
     player_teams['firstRound'] = player_teams['firstRound'].replace(['W','L'], [1,0])
@@ -98,6 +105,10 @@ def merge_with_team_data(df, teams_df):
 
     #remove unneeded columns
     player_teams.drop(['firstRound','semis','finals'], axis=1, inplace=True)
+
+    #add position column, get it from players.csv
+    players_file_path = "../ac/basketballPlayoffs/players.csv"
+    players_df = read_data(players_file_path)
 
     player_postion = players_df[['bioID', 'pos']]
 
@@ -183,7 +194,47 @@ def players_awards(df):
 
 
 def train_and_evaluate(df, years, i, classifier):
-    df = players_awards(df)
+    param_dists = {
+        RandomForestClassifier: {
+            'n_estimators': [25, 50, 100, 150],
+            'max_features': ['sqrt', 'log2', None],
+            'max_depth': [3, 6, 9],
+            'max_leaf_nodes': [3, 6, 9],
+        },
+        KNeighborsClassifier: {
+            'n_neighbors': [3, 5, 7, 9, 11],
+            'weights': ['uniform', 'distance'],
+            'metric': ['euclidean', 'manhattan']
+        },
+        SVC: {
+            'C': [0.1, 1, 10, 100],
+            'gamma': [0.01, 0.1, 1, 10],
+            'kernel': ['rbf', 'poly', 'sigmoid']
+        },
+        DecisionTreeClassifier: {
+            'criterion': ['gini', 'entropy'],
+            'max_depth': [3, 6, 9],
+            'max_leaf_nodes': [3, 6, 9],
+            'min_samples_split': [2, 3, 4]
+        },
+        MLPClassifier: {
+            'hidden_layer_sizes': [(50, 50, 50), (50, 100, 50), (100,)],
+        },
+        BaggingClassifier: {
+            'n_estimators': [10, 20, 50, 100],
+            'max_samples': [0.5, 1.0],
+            'max_features': [0.5, 1.0],
+            'bootstrap': [True, False],
+            'bootstrap_features': [True, False]
+        },
+        SGDClassifier: {
+            'loss': ['log'],
+            'penalty': ['l2', 'l1', 'elasticnet'],
+            'alpha': [0.0001, 0.001, 0.01, 0.1],
+            'max_iter': [1000, 2000, 3000]
+        },
+    }
+    #df = players_awards(df)
     train_years_before = years[:i]
     train_years = years[1:i+1]  # Use all years up to year i for training
     test_year = years[i]     # Testing on year i+1 
@@ -242,24 +293,33 @@ def train_and_evaluate(df, years, i, classifier):
     X_test = test.drop(remove_columns, axis=1)
     y_train = train['playoff']
 
+    param_dist = param_dists.get(type(classifier), {})
+
     # Get sample weights
     sample_weights = get_sample_weights(train)
 
+    #clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+    #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+    #clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1, n_iter=10)
+
     clf = classifier
 
-    if isinstance(classifier, KNeighborsClassifier) or isinstance(classifier, MLPClassifier):
+    if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier or type(classifier) == LogisticRegression or type(classifier) == LGBMClassifier:
         clf.fit(X_train, y_train)
     else:
-        clf.fit(X_train, y_train, sample_weight=sample_weights)
+        clf.fit(X_train, y_train ,sample_weight=sample_weights)
+
+    #classifier = clf.best_estimator_
     
-    # Predict probabilities for the test set
-    proba = clf.predict_proba(X_test)[:, 1]
+    if type(classifier) == SGDClassifier:
+        proba = classifier.predict(X_test)
+    else:
+        proba = classifier.predict_proba(X_test)[:, 1]
+
+    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
 
     # Initialize team_avg_predictions with all teams from the actual_year
     team_avg_predictions = {tmID: {'probs': [], 'confID': confID} for tmID, confID in zip(actual['tmID'], actual['confID'])}
-
-    # Store probabilities in a DataFrame along with player IDs from the test set
-    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
 
     # Get actual player IDs to filter the test set
     actual_players = actual['playerID'].unique()
@@ -286,13 +346,17 @@ def train_and_evaluate(df, years, i, classifier):
     # Calculate the average probability for teams that have players from the test set
     for tmID, data in team_avg_predictions.items():
         if data['probs']:  # If there are probabilities listed, calculate the average
+            print(f"Team {tmID} has {len(data['probs'])} players in the test set.")
             data['avg_prob'] = sum(data['probs']) / len(data['probs'])
         else:  # For teams with no players from the test set, decide how to handle
+            print(f"Team {tmID} has no players in the test set.")
             data['avg_prob'] = default_probability
 
     # Select top 4 teams from each conference
     east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
     west_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'WE']
+
+    all_teams = east_teams + west_teams
 
     top_east_teams = sorted(east_teams, key=lambda x: x[1], reverse=True)[:4]
     top_west_teams = sorted(west_teams, key=lambda x: x[1], reverse=True)[:4]
@@ -300,19 +364,16 @@ def train_and_evaluate(df, years, i, classifier):
     top_teams = top_east_teams + top_west_teams
 
     team_results = []
-    for tmID, avg_prob in top_teams:
-        prediction = 1
-        if tmID in actual['tmID'].values:
-            actual_value = actual[actual['tmID'] == tmID]['playoff'].iloc[0]
-        else:
-            continue
+    for tmID, avg_prob in all_teams:
+        actual_playoff = actual[actual['tmID'] == tmID]['playoff'].iloc[0] if tmID in actual['tmID'].values else 0
+        predicted_playoff = 1 if (tmID, avg_prob) in top_teams else 0
         team_results.append({
             'tmID': tmID,
-            'Year': predict_year,
-            'Classifier': classifier.__class__.__name__,
-            'Predicted': prediction,
+            'Predicted': predicted_playoff,
             'Probability': avg_prob,
-            'Actual': actual_value,
+            'Actual': actual_playoff,
+            'Year': actual['year'].iloc[0],
+            'Classifier': classifier.__class__.__name__
         })
 
     # Calculate accuracy
@@ -409,6 +470,8 @@ def plot_accuracy_over_time(prediction_data):
     plt.show()
 
 def train_model():
+    warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
+
     data_file_path = "basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
 
@@ -420,12 +483,14 @@ def train_model():
         years.sort()
 
         classifiers = {
-            "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
-            "KNN": KNeighborsClassifier(n_neighbors=3),
+            #"RandomForest": RandomForestClassifier(),
+            #"KNN": KNeighborsClassifier(n_neighbors=3),
             #"SVM": SVC(probability=True), # Enable probability estimates
+            "Bagging": BaggingClassifier(),
             #"DecisionTree": DecisionTreeClassifier(),
-            "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
-            "LGBM": LGBMClassifier(random_state=42)
+            #"MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
+            #"LGBM": LGBMClassifier()
+            "SGDClassifier": SGDClassifier()
         }
 
         results_dict = {}

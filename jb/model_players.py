@@ -319,7 +319,7 @@ def train_and_evaluate(df, years, classifier):
         y_train = cumulative_train['playoff']
         X_test = test.drop(remove_columns, axis=1)
 
-        #sample_weights = get_sample_weights(cumulative_train)
+        sample_weights = get_sample_weights(cumulative_train)
 
         # Get the parameter distribution based on the classifier type
         param_dist = param_dists.get(type(classifier), {})
@@ -335,7 +335,7 @@ def train_and_evaluate(df, years, classifier):
         if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier or type(classifier) == LogisticRegression or type(classifier) == LGBMClassifier:
             clf.fit(X_train, y_train)
         else:
-            clf.fit(X_train, y_train) #sample_weight=sample_weights)
+            clf.fit(X_train, y_train ,sample_weight=sample_weights)
         
         #Update classifier to be the best estimator
         #classifier = clf.best_estimator_
