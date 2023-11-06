@@ -49,8 +49,20 @@ def get_sample_weights(train):
 def compute_percentage(numerator, denominator):
     return round(numerator.divide(denominator).where(denominator != 0, 0.0)*100,2)
 
+def aggregate_awards_counts(player_teams):
+    #get from awards_players.csv
+    awards_file_path = "../ac/basketballPlayoffs/awards_players.csv"
+    awards_df = read_data(awards_file_path)
+    #add a column prizeCount to player_teams on each year
+    player_teams['prizeCount'] = 0
+    #associate each player with each award and year (ex: player A won 2 awards in 2010, thus 2010 has 2, but 2011 is 0 (unless he wins again))
+    for index, row in awards_df.iterrows():
+        player_teams.loc[(player_teams['playerID'] == row['playerID']) & (player_teams['year'] == row['year']), 'prizeCount'] += 1
+    
+    return player_teams
+
 def merge_with_team_data(df, teams_df):
-    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
+    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound','semis','finals']], on=['tmID', 'year'], how='left')
     #drop unneeded columns
     player_teams.drop('lgID', axis=1, inplace=True)
 
@@ -58,17 +70,101 @@ def merge_with_team_data(df, teams_df):
     player_teams = player_teams.sort_values(by=['playerID', 'year'])
     player_teams['career_year'] = player_teams.groupby('playerID').cumcount() + 1
 
+    #add position column, get it from players.csv
+    players_file_path = "../ac/basketballPlayoffs/players.csv"
+    players_df = read_data(players_file_path)
+
+    #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
+
+    #swap all the W and L in firstRound, semis, finals columns for 1 and 0
+    player_teams['firstRound'] = player_teams['firstRound'].replace(['W','L'], [1,0])
+    player_teams['semis'] = player_teams['semis'].replace(['W','L'], [1,0])
+    player_teams['finals'] = player_teams['finals'].replace(['W','L'], [1,0])
+
+    
+    player_teams['playoff_exit'] = 0
+    # Iterate over the rows of the DataFrame
+    for index, row in player_teams.iterrows():
+        if row['playoff'] == 1:  # Proceed only if the team made the playoffs
+            if row['firstRound'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 5
+            elif row['semis'] == 0:  # Checks if 'playoff_exit' hasn't been set already
+                player_teams.at[index, 'playoff_exit'] = 10
+            elif row['finals'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 30
+            elif row['finals'] == 1:
+                player_teams.at[index, 'playoff_exit'] = 40
+            # Add more conditions if there are more rounds or specific cases to handle
+
+    #remove unneeded columns
+    player_teams.drop(['firstRound','semis','finals'], axis=1, inplace=True)
+
+    player_postion = players_df[['bioID', 'pos']]
+
+    player_teams = player_teams.merge(player_postion, left_on='playerID', right_on='bioID', how='left')
+
+    #remove bioID column
+    player_teams.drop('bioID', axis=1, inplace=True)
+
     # Regular Season Percentages
     player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
     player_teams['fg%'] = compute_percentage(player_teams['fgMade'], player_teams['fgAttempted'])
     player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])
-    player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])
+    player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])*0.5
 
     # Playoffs Percentages
     player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
     player_teams['Postfg%'] = compute_percentage(player_teams['PostfgMade'], player_teams['PostfgAttempted'])
     player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
     player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
+
+    #effective field goal percentage
+    player_teams['efg%'] = compute_percentage(player_teams['fgMade'] + 0.5 * player_teams['threeMade'], player_teams['fgAttempted']) * 2
+
+    #true shooting percentage
+    player_teams['ts%'] = compute_percentage(player_teams['points'], 2 * (player_teams['fgAttempted'] + 0.44 * player_teams['ftAttempted'])) * 2
+
+    #per game stats
+    #if pos contains G, then multiply by assists by 1.5, if contains C, then multiply by rebounds by 1.5, if contains F, then points by 1.5 (it may contain more than one letter ex: G-F )
+    player_teams['ppg'] = compute_percentage(player_teams['points'], player_teams['GP'])
+    player_teams['apg'] = compute_percentage(player_teams['assists'], player_teams['GP'])
+    player_teams['rpg'] = compute_percentage(player_teams['rebounds'], player_teams['GP'])
+    player_teams['spg'] = compute_percentage(player_teams['steals'], player_teams['GP'])
+    player_teams['bpg'] = compute_percentage(player_teams['blocks'], player_teams['GP'])
+
+    # For guards or players with mixed positions including guard
+    player_teams.loc[player_teams['pos'].str.contains('G'), 'apg'] *= 1.5
+    player_teams.loc[player_teams['pos'].str.contains('G'), 'spg'] *= 1.5
+
+    # For centers or players with mixed positions including center
+    player_teams.loc[player_teams['pos'].str.contains('C'), 'rpg'] *= 1.5
+    # Assuming 'bpg' is blocks per game and exists in your DataFrame
+    player_teams.loc[player_teams['pos'].str.contains('C'), 'bpg'] *= 1.5
+
+    # For forwards or players with mixed positions including forward
+    player_teams.loc[player_teams['pos'].str.contains('F'), 'ppg'] *= 1.5
+
+
+    #per 36 minutes stats
+    player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
+
+    #defensive prowess: Defensive Prowess PCA: Use 'steals', 'blocks', and 'dRebounds' to create a 'Defensive Impact' principal component. Combine 'PF' (personal fouls) and 'turnovers' into a 'Defensive Discipline' component to represent careful play.
+    player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP'])*10
+    player_teams['defensive_discipline'] = compute_percentage(player_teams['PF'] + player_teams['turnovers'], player_teams['GP'])*2
+    
+    #defensive rebounds percentage
+    player_teams['drb%'] = compute_percentage(player_teams['dRebounds'], player_teams['rebounds'])
+
+    #offensive rebounds percentage
+    player_teams['orb%'] = compute_percentage(player_teams['oRebounds'], player_teams['rebounds'])
+
+    #remove unneeded columns
+    player_teams.drop(['pos','ftMade', 'ftAttempted', 'fgMade', 'fgAttempted', 'threeMade', 'threeAttempted', 'GS', 'GP', 'PostftMade', 'PostftAttempted', 'PostfgMade', 'PostfgAttempted', 'PostthreeMade', 'PostthreeAttempted', 'PostGS', 'PostGP', 'PF', 'turnovers', 'dRebounds', 'steals', 'blocks', 'PostPoints', 'PostRebounds', 'PostoRebounds','PostdRebounds','PostSteals','PostAssists', 'minutes', 'points', 'assists','dq','oRebounds','rebounds','PostMinutes','PostBlocks','PostTurnovers','PostPF','PostDQ'], axis=1, inplace=True)
+
+    player_teams = aggregate_awards_counts(player_teams)
+
+    #multiply by 1.5 the awards count
+    player_teams['prizeCount']
 
     return player_teams
 
@@ -283,6 +379,35 @@ def plot_teams_comparison(prediction_data, classifier_name):
     plt.tight_layout()  # Ensure layout is tight and no content is clipped
     plt.show()
 
+def plot_accuracy_over_time(prediction_data):
+    unique_years = sorted(set(entry['Year'] for entry in prediction_data))
+    classifiers = sorted(set(entry['Classifier'] for entry in prediction_data))
+
+    # Prepare data for plotting
+    accuracy_data = {classifier: [] for classifier in classifiers}
+
+    # Collect accuracy for each classifier by year
+    for year in unique_years:
+        for classifier in classifiers:
+            year_data = [entry for entry in prediction_data if entry['Year'] == year and entry['Classifier'] == classifier]
+            correct_predictions = sum(entry['Predicted'] == entry['Actual'] for entry in year_data)
+            accuracy = correct_predictions / len(year_data) if year_data else 0
+            print(f"Year: {year}, Classifier: {classifier}, Accuracy: {accuracy:.2f}, Num Predictions: {len(year_data)}, Num Correct: {correct_predictions}")
+            accuracy_data[classifier].append(accuracy)
+    # Plotting
+    fig, ax = plt.subplots(figsize=(12, 6))
+    for classifier, accuracies in accuracy_data.items():
+        ax.plot(unique_years, accuracies, label=classifier, marker='x')
+
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Accuracy')
+    #make an x at each point
+    ax.set_title('Classifier Accuracy Over Time')
+    ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
 def train_model():
     data_file_path = "basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
@@ -297,8 +422,8 @@ def train_model():
         classifiers = {
             "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
             "KNN": KNeighborsClassifier(n_neighbors=3),
-            "SVM": SVC(probability=True), # Enable probability estimates
-            "DecisionTree": DecisionTreeClassifier(),
+            #"SVM": SVC(probability=True), # Enable probability estimates
+            #"DecisionTree": DecisionTreeClassifier(),
             "MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
             "LGBM": LGBMClassifier(random_state=42)
         }
@@ -318,15 +443,18 @@ def train_model():
         predictions_df = pd.DataFrame(prediction_data)
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
 
-        selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
-        if selector == 'b':
-            plot_bar_chart(predictions_df)
-        elif selector == 'h':
-            plot_heatmaps(predictions_df)
-        elif selector == 'l':
-            plot_line_chart(predictions_df)
-        else:
-            print("Invalid input. Please try again.")
+        # Plot the accuracy for each classifier over time
+        plot_accuracy_over_time(prediction_data)
+
+        # selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
+        # if selector == 'b':
+        #     plot_bar_chart(predictions_df)
+        # elif selector == 'h':
+        #     plot_heatmaps(predictions_df)
+        # elif selector == 'l':
+        #     plot_line_chart(predictions_df)
+        # else:
+        #     print("Invalid input. Please try again.")
 
 if __name__ == "__main__":
     train_model()

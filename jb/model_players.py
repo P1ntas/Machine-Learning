@@ -1,5 +1,5 @@
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier
 from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 import logging
@@ -13,6 +13,11 @@ from sklearn.model_selection import RandomizedSearchCV
 from lightgbm import LGBMClassifier
 from sklearn.model_selection import GridSearchCV
 from skopt import BayesSearchCV
+#import bagging classifier
+from sklearn.ensemble import BaggingClassifier
+#import sgdc classifier
+from sklearn.linear_model import SGDClassifier
+import statistics
 
 
 
@@ -85,20 +90,28 @@ def merge_with_team_data(df, teams_df):
 
     #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
 
+    #swap all the W and L in firstRound, semis, finals columns for 1 and 0
+    player_teams['firstRound'] = player_teams['firstRound'].replace(['W','L'], [1,0])
+    player_teams['semis'] = player_teams['semis'].replace(['W','L'], [1,0])
+    player_teams['finals'] = player_teams['finals'].replace(['W','L'], [1,0])
+
+    
     player_teams['playoff_exit'] = 0
-    player_teams.loc[(player_teams['firstRound'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 1
-    player_teams.loc[(player_teams['semis'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 2
-    player_teams.loc[(player_teams['finals'] == 1) & (player_teams['playoff'] == 1), 'playoff_exit'] = 3
-    player_teams.loc[(player_teams['playoff'] == 1) & (player_teams['playoff_exit'] == 0), 'playoff_exit'] = 4
+    # Iterate over the rows of the DataFrame
+    for index, row in player_teams.iterrows():
+        if row['playoff'] == 1:  # Proceed only if the team made the playoffs
+            if row['firstRound'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 5
+            elif row['semis'] == 0:  # Checks if 'playoff_exit' hasn't been set already
+                player_teams.at[index, 'playoff_exit'] = 10
+            elif row['finals'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 30
+            elif row['finals'] == 1:
+                player_teams.at[index, 'playoff_exit'] = 40
+            # Add more conditions if there are more rounds or specific cases to handle
 
     #remove unneeded columns
     player_teams.drop(['firstRound','semis','finals'], axis=1, inplace=True)
-
-    #add a huge penalty for players that lost in the first round and no playoffs,  a smaller penalty for players that lost in the semis and finals, and bonus for players that won
-    player_teams.loc[player_teams['playoff_exit'] == 1, 'playoff_exit'] *= 1.5
-    player_teams.loc[player_teams['playoff_exit'] == 2, 'playoff_exit'] *= 2
-    player_teams.loc[player_teams['playoff_exit'] == 3, 'playoff_exit'] *= 5
-    player_teams.loc[player_teams['playoff_exit'] == 4, 'playoff_exit'] *= 5
 
     player_postion = players_df[['bioID', 'pos']]
 
@@ -106,12 +119,6 @@ def merge_with_team_data(df, teams_df):
 
     #remove bioID column
     player_teams.drop('bioID', axis=1, inplace=True)
-
-    #time in playoffs
-    player_teams['time_in_playoffs'] = player_teams['playoff'].cumsum()
-
-    #multiply by 1.5 the time in playoffs
-    player_teams['time_in_playoffs'] *= 1.5
 
     # Regular Season Percentages
     player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
@@ -199,6 +206,8 @@ def evaluate_predictions(test_proba_with_ids, actual, default_probability, class
             data['avg_prob'] = sum(top_probs) / len(top_probs)
         else:
             data['avg_prob'] = default_probability
+    
+    print("Default probability: ", default_probability)
 
 
     east_teams = [(tmID, data['avg_prob']) for tmID, data in team_avg_predictions.items() if data['confID'] == 'EA']
@@ -236,6 +245,22 @@ def train_and_evaluate(df, years, classifier):
     cumulative_train = pd.DataFrame()
     results = []
 
+    #  # Define base classifiers for stacking
+    # base_classifiers = [
+    #     ('rf', RandomForestClassifier(n_estimators=10, max_depth=3)),
+    #     ('knn', KNeighborsClassifier(n_neighbors=5)),
+    #     ('svc', SVC(C=1, gamma=0.01, kernel='rbf', probability=True)),
+    #     ('dt', DecisionTreeClassifier(max_depth=3)),
+    #     ('mlp', MLPClassifier(hidden_layer_sizes=(50,))),
+    #     ('sgd', SGDClassifier(loss='log', max_iter=1000))
+    #     # Add other base classifiers as needed
+    # ]
+    
+    # # Define meta-learner
+    # meta_learner = LogisticRegression()
+
+    # stacking_clf = StackingClassifier(estimators=base_classifiers, final_estimator=meta_learner, cv=5)
+
     # Define parameter distributions for each classifier type
     param_dists = {
         RandomForestClassifier: {
@@ -262,7 +287,20 @@ def train_and_evaluate(df, years, classifier):
         },
         MLPClassifier: {
             'hidden_layer_sizes': [(50, 50, 50), (50, 100, 50), (100,)],
-        }
+        },
+        BaggingClassifier: {
+            'n_estimators': [10, 20, 50, 100],
+            'max_samples': [0.5, 1.0],
+            'max_features': [0.5, 1.0],
+            'bootstrap': [True, False],
+            'bootstrap_features': [True, False]
+        },
+        SGDClassifier: {
+            'loss': ['log'],
+            'penalty': ['l2', 'l1', 'elasticnet'],
+            'alpha': [0.0001, 0.001, 0.01, 0.1],
+            'max_iter': [1000, 2000, 3000]
+        },
     }
 
     for i in range(len(years) - 2):
@@ -270,7 +308,7 @@ def train_and_evaluate(df, years, classifier):
         test_year = years[i+1]
         predict_year = years[i+2]
 
-        # Adding new year data to cumulative train data
+        # # Adding new year data to cumulative train data
         cumulative_train = cumulative_train._append(df[df['year'].isin(train_years)], ignore_index=True)
 
         test = df[df['year'] == test_year]
@@ -281,7 +319,7 @@ def train_and_evaluate(df, years, classifier):
         y_train = cumulative_train['playoff']
         X_test = test.drop(remove_columns, axis=1)
 
-        sample_weights = get_sample_weights(cumulative_train)
+        #sample_weights = get_sample_weights(cumulative_train)
 
         # Get the parameter distribution based on the classifier type
         param_dist = param_dists.get(type(classifier), {})
@@ -290,19 +328,23 @@ def train_and_evaluate(df, years, classifier):
 
         #clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
         #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
-        clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1, n_iter=20)
+        #clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1, n_iter=10)
+        clf = classifier
 
 
         if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier or type(classifier) == LogisticRegression or type(classifier) == LGBMClassifier:
             clf.fit(X_train, y_train)
         else:
-            clf.fit(X_train, y_train, sample_weight=sample_weights)
+            clf.fit(X_train, y_train) #sample_weight=sample_weights)
         
-        # Update classifier to be the best estimator
-        classifier = clf.best_estimator_
+        #Update classifier to be the best estimator
+        #classifier = clf.best_estimator_
 
         # Predict probabilities for the test set using the best estimator
-        proba = classifier.predict_proba(X_test)[:, 1]
+        if type(classifier) == SGDClassifier:
+            proba = classifier.predict(X_test)
+        else:
+            proba = classifier.predict_proba(X_test)[:, 1]
         test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
 
         # Define default probability
@@ -421,12 +463,14 @@ def train_model():
 
         classifiers = {
             "RandomForest": RandomForestClassifier(),
-            #"KNN": KNeighborsClassifier(n_neighbors=3),
-            #"SVM": SVC(probability=True), # Enable probability estimates
+            "Bagging": BaggingClassifier(),
+            "KNN": KNeighborsClassifier(n_neighbors=3),
+            "SVM": SVC(probability=True), # Enable probability estimates
             #"DecisionTree": DecisionTreeClassifier(),
             #"MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
             #"LGBM": LGBMClassifier(random_state=42),
-            #"LogisticRegression": LogisticRegression()
+            #"LogisticRegression": LogisticRegression(),
+            #"SGDClassifier": SGDClassifier()
         }
 
         total_results = []
