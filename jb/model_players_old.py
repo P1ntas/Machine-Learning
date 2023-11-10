@@ -16,6 +16,13 @@ from lightgbm import LGBMClassifier
 from sklearn.ensemble import BaggingClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+#joblib is used to save the model
+import joblib
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+
 
 warnings.filterwarnings("ignore")
 warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
@@ -48,24 +55,23 @@ def get_teams_data():
     return None
 
 def get_sample_weights(train):
-    max_year = train['year'].max()
-    weights = train['year'].apply(lambda x: 2 if x == max_year else 1)
-    #add weight to the players that reached the at least the semis the previous year
-    for index, row in train.iterrows():
-        player_id = row['playerID']
-        year = row['year']
-        if row['stint'] > 1:
-            weights[index] = 0
-        elif ((train['playerID'] == player_id) & (train['year'] == year - 1) & (train['playoff_exit'] >= 10)).any():
-            weights[index] = 2
-        
-    #if pos = C or F-C, and rpg > 8, then weight = 2
-    for index, row in train.iterrows():
-        if row['pos'] == 3 or row['pos'] == 4:
-            if row['rpg'] > 8:
-                weights[index] = 2
-
+    # Initialize all weights to 1
+    weights = pd.Series(1, index=train.index)
+    
+    # Increase weight for players that reached at least the semis the previous year
+    previous_year_semi_finalists = train[
+        (train['year'].isin(train['year'] - 1)) & (train['playoff_exit'] >= 10)
+    ]['playerID']
+    weights[train['playerID'].isin(previous_year_semi_finalists)] = 2
+    
+    # Increase weight for players with avgAttend > 10000, but not if they already have increased weight
+    weights[(train['avgAttend'] > 10000) & (weights == 1)] = 2
+    
+    # Increase weight if pos = C or F-C, and rpg > 8, but not if they already have increased weight
+    weights[(train['pos'].isin([3, 4])) & (train['rpg'] > 8) & (weights == 1)] = 2
+    
     return weights
+
 
 def compute_percentage(numerator, denominator):
     return round(numerator.divide(denominator).where(denominator != 0, 0.0)*100,2)
@@ -90,6 +96,23 @@ def merge_with_team_data(df, teams_df):
     player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound','semis','finals']], on=['tmID', 'year'], how='left')
     #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
 
+    #for each player, get the avg attendance of their tmID in that year, get the column attend in teams.csv
+    player_teams = player_teams.merge(teams_df[['tmID', 'year', 'attend']], on=['tmID', 'year'], how='left')
+
+    player_teams['homeW'] = player_teams.merge(teams_df[['tmID', 'year', 'homeW']], on=['tmID', 'year'], how='left')['homeW']
+    player_teams['homeL'] = player_teams.merge(teams_df[['tmID', 'year', 'homeL']], on=['tmID', 'year'], how='left')['homeL']
+
+    player_teams['homeGames'] = player_teams['homeW'] + player_teams['homeL']
+
+    player_teams['avgAttend'] = player_teams['attend']/player_teams['homeGames']
+
+    #drop unneeded columns
+    player_teams.drop(['attend','homeW','homeL','homeGames'], axis=1, inplace=True)
+
+
+
+    print(player_teams.head(10))
+
     #drop unneeded columns
     player_teams.drop('lgID', axis=1, inplace=True)
 
@@ -108,13 +131,13 @@ def merge_with_team_data(df, teams_df):
     for index, row in player_teams.iterrows():
         if row['playoff'] == 1:  # Proceed only if the team made the playoffs
             if row['firstRound'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 10
+                player_teams.at[index, 'playoff_exit'] = 1
             elif row['semis'] == 0:  # Checks if 'playoff_exit' hasn't been set already
-                player_teams.at[index, 'playoff_exit'] = 20
+                player_teams.at[index, 'playoff_exit'] = 2
             elif row['finals'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 30
+                player_teams.at[index, 'playoff_exit'] = 10
             elif row['finals'] == 1:
-                player_teams.at[index, 'playoff_exit'] = 40
+                player_teams.at[index, 'playoff_exit'] = 20
             # Add more conditions if there are more rounds or specific cases to handle
 
     #remove unneeded columns
@@ -135,13 +158,13 @@ def merge_with_team_data(df, teams_df):
     player_teams['pos'] = player_teams['pos'].replace(['G','F','C','C-F','F-C','G-F','F-G'], [1,2,3,4,4,5,5])
 
     # # Regular Season Percentages
-    #player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])*100
+    #player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
     # player_teams['fg%'] = compute_percentage(player_teams['fgMade'], player_teams['fgAttempted'])
-    # player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])
+    #player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])*10
     # player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])*0.5
 
     # # Playoffs Percentages
-    # player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
+    #player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
     # player_teams['Postfg%'] = compute_percentage(player_teams['PostfgMade'], player_teams['PostfgAttempted'])
     # player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
     # player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
@@ -149,19 +172,37 @@ def merge_with_team_data(df, teams_df):
     #effective field goal percentage
     player_teams['efg%'] = compute_percentage(player_teams['fgMade'] + 0.5 * player_teams['threeMade'], player_teams['fgAttempted']) * 2
 
+    #post effective field goal percentage
+    player_teams['Postefg%'] = compute_percentage(player_teams['PostfgMade'] + 0.5 * player_teams['PostthreeMade'], player_teams['PostfgAttempted']) * 2
+
     #true shooting percentage
     player_teams['ts%'] = compute_percentage(player_teams['points'], 2 * (player_teams['fgAttempted'] + 0.44 * player_teams['ftAttempted'])) * 2
 
-    #per game stats
-    #if pos contains G, then multiply by assists by 1.5, if contains C, then multiply by rebounds by 1.5, if contains F, then points by 1.5 (it may contain more than one letter ex: G-F )
-    player_teams['ppg'] = compute_percentage(player_teams['points'], player_teams['GP'])
-    player_teams['apg'] = compute_percentage(player_teams['assists'], player_teams['GP'])
-    player_teams['rpg'] = compute_percentage(player_teams['rebounds'], player_teams['GP'])
-    player_teams['spg'] = compute_percentage(player_teams['steals'], player_teams['GP'])
-    player_teams['bpg'] = compute_percentage(player_teams['blocks'], player_teams['GP'])
+    max_efg_by_year = player_teams.groupby('year')['efg%'].transform('max')
+    max_ts_by_year = player_teams.groupby('year')['ts%'].transform('max')
+    min_efg_by_year = player_teams.groupby('year')['efg%'].transform('min')
+    min_ts_by_year = player_teams.groupby('year')['ts%'].transform('min')
+
+    # Apply the normalization within each year
+    player_teams['efg%'] = (player_teams['efg%'] - min_efg_by_year) / (max_efg_by_year - min_efg_by_year)
+    player_teams['ts%'] = (player_teams['ts%'] - min_ts_by_year) / (max_ts_by_year - min_ts_by_year)
+
+    player_teams['ppg'] = round(player_teams['points']/player_teams['GP'],2)
+    player_teams['rpg'] = round(player_teams['rebounds']/player_teams['GP'],2)
+    player_teams['apg'] = round(player_teams['assists']/player_teams['GP'],2)
+    player_teams['spg'] = round(player_teams['steals']/player_teams['GP'],2)
+    player_teams['bpg'] = round(player_teams['blocks']/player_teams['GP'],2)
 
     #efficiency
     player_teams['eff'] = player_teams['ppg'] + player_teams['rpg'] + player_teams['apg'] + player_teams['spg'] + player_teams['bpg'] - (player_teams['fgAttempted'] - player_teams['fgMade']) - (player_teams['ftAttempted'] - player_teams['ftMade']) - player_teams['turnovers']
+
+    # Calculate the min and max of `eff` for each year
+    min_eff_by_year = player_teams.groupby('year')['eff'].transform('min')
+    max_eff_by_year = player_teams.groupby('year')['eff'].transform('max')
+
+    # Apply the normalization within each year
+    player_teams['eff'] = (player_teams['eff'] - min_eff_by_year) / (max_eff_by_year - min_eff_by_year)
+
 
     #drop shooting percentages
     #player_teams.drop(['ft%','fg%','three%','gs%','Postft%','Postfg%','Postthree%','Postgs%'], axis=1, inplace=True)
@@ -181,13 +222,21 @@ def merge_with_team_data(df, teams_df):
 
 
     #per 36 minutes stats
-    #player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
+    player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
 
     #defensive prowess: Defensive Prowess PCA: Use 'steals', 'blocks', and 'dRebounds' to create a 'Defensive Impact' principal component. Combine 'PF' (personal fouls) and 'turnovers' into a 'Defensive Discipline' component to represent careful play.
     player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP'])*2
     player_teams['defensive_discipline'] = compute_percentage(player_teams['PF'] + player_teams['turnovers'], player_teams['GP'])*2
     
-    # #defensive rebounds percentage
+    #normalize defensive prowess and defensive discipline
+    max_defensive_prowess_by_year = player_teams.groupby('year')['defensive_prowess'].transform('max')
+    max_defensive_discipline_by_year = player_teams.groupby('year')['defensive_discipline'].transform('max')
+    min_defensive_prowess_by_year = player_teams.groupby('year')['defensive_prowess'].transform('min')
+    min_defensive_discipline_by_year = player_teams.groupby('year')['defensive_discipline'].transform('min')
+
+    # Apply the normalization within each year
+    player_teams['defensive_prowess'] = (player_teams['defensive_prowess'] - min_defensive_prowess_by_year) / (max_defensive_prowess_by_year - min_defensive_prowess_by_year)
+    player_teams['defensive_discipline'] = (player_teams['defensive_discipline'] - min_defensive_discipline_by_year) / (max_defensive_discipline_by_year - min_defensive_discipline_by_year)
     # player_teams['drb%'] = compute_percentage(player_teams['dRebounds'], player_teams['rebounds'])
 
     # #offensive rebounds percentage
@@ -199,7 +248,8 @@ def merge_with_team_data(df, teams_df):
 
     player_teams.drop(['ppg','apg','spg','bpg'], axis=1, inplace=True)
 
-    player_teams = aggregate_awards_counts(player_teams)
+    #player_teams = aggregate_awards_counts(player_teams)
+    print(player_teams.head(10))
 
     return player_teams
 
@@ -220,26 +270,29 @@ def players_awards(df):
 def train_and_evaluate(df, years, i, classifier):
     param_dists = {
         RandomForestClassifier: { #for accuracy, low computational cost
-            'n_estimators': [20],
-            'max_depth': [10],
+            'n_estimators': [40],
+            'max_depth': [10, None],
             'max_leaf_nodes': [6, 12],
-            'n_jobs': [-1]
+            'criterion': ['gini', 'entropy'],
+            'min_samples_split': [4],
         },
         KNeighborsClassifier: { #for accuracy
             'n_neighbors': [3, 7, 15],
             'weights': ['uniform'],
-            'algorithm': ['auto']
+            'algorithm': ['auto'],
+            'leaf_size': [30],
+            'p': [1, 2]
         },
         SVC: {
             'C': [0.1, 1, 10],
             'gamma': [0.01, 0.1, 1],
-            'kernel': ['rbf', 'poly']
+            'kernel': ['rbf']
         },
         DecisionTreeClassifier: { #for accuracy (the choice is binary, but the criterion is entropy)
             'criterion': ['gini', 'entropy'],
-            'max_depth': [3, 6, 9],
+            'max_depth': [ 6, 9],
             'max_leaf_nodes': [9],
-            'min_samples_split': [2,4]
+            'min_samples_split': [4]
         },
         MLPClassifier: { #for accuracy
             'hidden_layer_sizes': [(50,50,50), (50,100,50), (100,)],
@@ -248,31 +301,21 @@ def train_and_evaluate(df, years, i, classifier):
         BaggingClassifier: {
             'n_estimators': [10, 20],
             'max_samples': [0.5, 1.0],
-            'max_features': [0.5, 1.0],
+            'bootstrap': [True, False],
         },
         SGDClassifier: {    #for accuracy
-            'loss': ['hinge', 'log', 'modified_huber', 'squared_hinge', 'perceptron'],
-            'penalty': ['l2', 'l1', 'alpha'],
-            'alpha': [0.0001, 0.001, 0.01, 0.1],
-            'learning_rate': ['constant', 'optimal', 'invscaling', 'adaptive'],
-            'eta0': [0.01, 0.1, 1, 10],
-            'power_t': [0.1, 0.5, 1, 5],
-            'early_stopping': [True, False],
-            'validation_fraction': [0.1, 0.2, 0.3]
+            'loss': ['hinge', 'log', 'perceptron'],
+            'penalty': ['l2'],
+            'alpha': [0.0001, 0.1],
+            'learning_rate': ['constant', 'adaptive'],
+            'eta0': [0.01, 10],
+            'power_t': [0.1, 5],
         },
         LGBMClassifier: {  #for accuracy, low computational cost
-            'num_leaves': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-            'max_depth': [3, 4, 5, 6, 7, 8, 9, 10],
-            'learning_rate': [0.01, 0.05, 0.1, 0.2, 0.3],
-            'n_estimators': [10, 20, 50, 100, 200, 300, 400, 500],
-            'min_child_weight': [0.001, 0.002, 0.003, 0.004, 0.005],
-            'min_child_samples': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-            'subsample': [0.5, 0.6, 0.7, 0.8, 0.9],
-            'colsample_bytree': [0.5, 0.6, 0.7, 0.8, 0.9],
-            'reg_alpha': [0.001, 0.002, 0.003, 0.004, 0.005],
-            'reg_lambda': [0.001, 0.002, 0.003, 0.004, 0.005],
+            'num_leaves': [10, 100],
+            'max_depth': [3, 10],
             'silent': [True, False],
-            'importance_type': ['split', 'gain', 'weight'],
+            'importance_type': ['split'],
             'n_jobs': [-1]
         },
         LogisticRegression: {  # for accuracy
@@ -346,9 +389,9 @@ def train_and_evaluate(df, years, i, classifier):
     # Get sample weights
     sample_weights = get_sample_weights(train)
 
-    clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy',refit=True, verbose=2)
+    #clf = GridSearchCV(classifier, param_dist, cv=3, scoring='accuracy',refit=True, verbose=2)
     #randomized search for accuracy, low computational cost
-    #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', refit=True, verbose=2)
+    clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', refit=True, verbose=2, n_iter=40)
     #clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', verbose=1, refit=True)
 
     #clf = classifier
@@ -358,9 +401,15 @@ def train_and_evaluate(df, years, i, classifier):
     else:
         clf.fit(X_train, y_train ,sample_weight=sample_weights)
 
+    #clf.fit(X_train, y_train)
+
     classifier = clf.best_estimator_
 
     print(f"Best parameters: {clf.best_params_}")
+
+    #store in results/std.txt year 4 predictions and training accuracy
+    print(f"Training accuracy: {clf.score(X_train, y_train)}")
+
     
     if type(classifier) == SGDClassifier  or type(classifier) == SVC:
         proba = classifier.predict(X_test)
@@ -400,7 +449,8 @@ def train_and_evaluate(df, years, i, classifier):
     # Calculate the average probability for teams that have players from the test set
     for tmID, data in team_avg_predictions.items():
         if data['probs']:  # If there are probabilities listed, calculate the average
-            data['avg_prob'] = sum(data['probs']) / len(data['probs'])
+            top_3 = sorted(zip(data['players'], data['probs']), key=lambda x: x[1], reverse=True)[:5]
+            data['avg_prob'] = sum([prob for _, prob in top_3]) / len(top_3)
         else:  # For teams with no players from the test set, decide how to handle
             print(f"Team {tmID} has no players in the test set.")
             data['avg_prob'] = default_probability
@@ -580,11 +630,11 @@ def train_model():
         years.sort()
 
         classifiers = {
-            "RandomForest": RandomForestClassifier(),
-            #"KNN": KNeighborsClassifier(),
+            "RandomForest": RandomForestClassifier(random_state=20),
+            "KNN": KNeighborsClassifier(),
             #"SVM": SVC(), # Enable probability estimates
             #"Bagging": BaggingClassifier(),
-            #"DecisionTree": DecisionTreeClassifier(),
+            #"DecisionTree": DecisionTreeClassifier(random_state=15),
             #"MLP": MLPClassifier(), # Multi-layer Perceptron classifier
             #"LGBM": LGBMClassifier(),
             #"SGDClassifier": SGDClassifier(),
@@ -611,16 +661,6 @@ def train_model():
         # Plot the accuracy for each classifier over time
         plot_team(team_data)
         plot_player(players_data)
-
-        # selector = input("Do you want to see the bar chart or the heatmap or line graph? (b/h/l): ")
-        # if selector == 'b':
-        #     plot_bar_chart(predictions_df)
-        # elif selector == 'h':
-        #     plot_heatmaps(predictions_df)
-        # elif selector == 'l':
-        #     plot_line_chart(predictions_df)
-        # else:
-        #     print("Invalid input. Please try again.")
 
 if __name__ == "__main__":
     train_model()
