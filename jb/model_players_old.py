@@ -22,10 +22,65 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
+previous_year_predictions = {}
 
-
-warnings.filterwarnings("ignore")
-warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
+param_dists = {
+        RandomForestClassifier: { #for accuracy, low computational cost
+            'n_estimators': [40],
+            'max_depth': [10, None],
+            'max_leaf_nodes': [6, 12],
+            'criterion': ['gini', 'entropy'],
+            'min_samples_split': [4],
+        },
+        KNeighborsClassifier: { #for accuracy
+            'n_neighbors': [3, 7, 15],
+            'weights': ['uniform'],
+            'algorithm': ['auto'],
+            'leaf_size': [30],
+            'p': [1, 2]
+        },
+        SVC: {
+            'C': [0.1, 1, 10],
+            'gamma': [0.01, 0.1, 1],
+            'kernel': ['rbf']
+        },
+        DecisionTreeClassifier: { #for accuracy (the choice is binary, but the criterion is entropy)
+            'criterion': ['gini', 'entropy'],
+            'max_depth': [ 6, 9],
+            'max_leaf_nodes': [9],
+            'min_samples_split': [4]
+        },
+        MLPClassifier: { #for accuracy
+            'hidden_layer_sizes': [(50,50,50), (50,100,50), (100,)],
+            'activation': ['tanh', 'relu'],
+        },
+        BaggingClassifier: {
+            'n_estimators': [10, 20],
+            'max_samples': [0.5, 1.0],
+            'bootstrap': [True, False],
+        },
+        SGDClassifier: {    #for accuracy
+            'loss': ['hinge', 'log', 'perceptron'],
+            'penalty': ['l2'],
+            'alpha': [0.0001, 0.1],
+            'learning_rate': ['constant', 'adaptive'],
+            'eta0': [0.01, 10],
+            'power_t': [0.1, 5],
+        },
+        LGBMClassifier: {  #for accuracy, low computational cost
+            'num_leaves': [10, 100],
+            'max_depth': [3, 10],
+            'silent': [True, False],
+            'importance_type': ['split'],
+            'n_jobs': [-1]
+        },
+        LogisticRegression: {  # for accuracy
+            'penalty': ['l2'],  # 'l1' and 'elasticnet' might require the 'saga' solver, which is slower
+            'C': [0.1, 1, 10],  # fewer values, spread across orders of magnitude
+            'solver': ['lbfgs'],  # only include solvers that work well with 'l2'
+            'max_iter': [500]  # reduced max iterations
+        }
+    }
 
 
 logging.basicConfig(level=logging.INFO)
@@ -267,64 +322,9 @@ def players_awards(df):
     return merged_df 
 
 
+
+
 def train_and_evaluate(df, years, i, classifier):
-    param_dists = {
-        RandomForestClassifier: { #for accuracy, low computational cost
-            'n_estimators': [40],
-            'max_depth': [10, None],
-            'max_leaf_nodes': [6, 12],
-            'criterion': ['gini', 'entropy'],
-            'min_samples_split': [4],
-        },
-        KNeighborsClassifier: { #for accuracy
-            'n_neighbors': [3, 7, 15],
-            'weights': ['uniform'],
-            'algorithm': ['auto'],
-            'leaf_size': [30],
-            'p': [1, 2]
-        },
-        SVC: {
-            'C': [0.1, 1, 10],
-            'gamma': [0.01, 0.1, 1],
-            'kernel': ['rbf']
-        },
-        DecisionTreeClassifier: { #for accuracy (the choice is binary, but the criterion is entropy)
-            'criterion': ['gini', 'entropy'],
-            'max_depth': [ 6, 9],
-            'max_leaf_nodes': [9],
-            'min_samples_split': [4]
-        },
-        MLPClassifier: { #for accuracy
-            'hidden_layer_sizes': [(50,50,50), (50,100,50), (100,)],
-            'activation': ['tanh', 'relu'],
-        },
-        BaggingClassifier: {
-            'n_estimators': [10, 20],
-            'max_samples': [0.5, 1.0],
-            'bootstrap': [True, False],
-        },
-        SGDClassifier: {    #for accuracy
-            'loss': ['hinge', 'log', 'perceptron'],
-            'penalty': ['l2'],
-            'alpha': [0.0001, 0.1],
-            'learning_rate': ['constant', 'adaptive'],
-            'eta0': [0.01, 10],
-            'power_t': [0.1, 5],
-        },
-        LGBMClassifier: {  #for accuracy, low computational cost
-            'num_leaves': [10, 100],
-            'max_depth': [3, 10],
-            'silent': [True, False],
-            'importance_type': ['split'],
-            'n_jobs': [-1]
-        },
-        LogisticRegression: {  # for accuracy
-            'penalty': ['l2'],  # 'l1' and 'elasticnet' might require the 'saga' solver, which is slower
-            'C': [0.1, 1, 10],  # fewer values, spread across orders of magnitude
-            'solver': ['lbfgs'],  # only include solvers that work well with 'l2'
-            'max_iter': [500]  # reduced max iterations
-        }
-    }
     #df = players_awards(df)
     train_years_before = years[:i]
     train_years = years[1:i+1]  # Use all years up to year i for training
@@ -446,6 +446,7 @@ def train_and_evaluate(df, years, i, classifier):
             team_avg_predictions[team_id]['confID'] = confID
 
 
+
     # Calculate the average probability for teams that have players from the test set
     for tmID, data in team_avg_predictions.items():
         if data['probs']:  # If there are probabilities listed, calculate the average
@@ -454,6 +455,8 @@ def train_and_evaluate(df, years, i, classifier):
         else:  # For teams with no players from the test set, decide how to handle
             print(f"Team {tmID} has no players in the test set.")
             data['avg_prob'] = default_probability
+
+    previous_year_predictions = team_avg_predictions.copy()
 
     # Select top 4 teams from each conference
     east_teams = [(tmID, sum(data["probs"]) / len(data["probs"])) for tmID, data in team_avg_predictions.items() if data["confID"] == 'EA']
@@ -498,6 +501,7 @@ def train_and_evaluate(df, years, i, classifier):
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
 
     return team_results, accuracy, player_results
+
 
 def plot_teams_comparison(prediction_data, classifier_name):
     # Organize the data by years, and then by actual vs predicted
