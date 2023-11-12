@@ -101,13 +101,13 @@ def merge_with_team_data(df, teams_df):
     for index, row in player_teams.iterrows():
         if row['playoff'] == 1:  # Proceed only if the team made the playoffs
             if row['firstRound'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 5
+                player_teams.at[index, 'playoff_exit'] = 0
             elif row['semis'] == 0:  # Checks if 'playoff_exit' hasn't been set already
-                player_teams.at[index, 'playoff_exit'] = 10
+                player_teams.at[index, 'playoff_exit'] = 1
             elif row['finals'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 30
+                player_teams.at[index, 'playoff_exit'] = 5
             elif row['finals'] == 1:
-                player_teams.at[index, 'playoff_exit'] = 40
+                player_teams.at[index, 'playoff_exit'] = 7
             # Add more conditions if there are more rounds or specific cases to handle
 
     #remove unneeded columns
@@ -264,13 +264,13 @@ def train_and_evaluate(df, years, classifier):
     # Define parameter distributions for each classifier type
     param_dists = {
         RandomForestClassifier: {
-            'n_estimators': [25, 50, 100, 150],
+            'n_estimators': [150],
             'max_features': ['sqrt', 'log2', None],
-            'max_depth': [3, 6, 9],
-            'max_leaf_nodes': [3, 6, 9],
+            'max_depth': [3, 9],
+            'max_leaf_nodes': [9],
         },
         KNeighborsClassifier: {
-            'n_neighbors': [3, 5, 7, 9, 11],
+            'n_neighbors': [3, 9, 11],
             'weights': ['uniform', 'distance'],
             'metric': ['euclidean', 'manhattan']
         },
@@ -326,10 +326,10 @@ def train_and_evaluate(df, years, classifier):
         
         # Define the classifier
 
-        #clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+        clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy')
         #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
         #clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', n_jobs=-1, verbose=1, n_iter=10)
-        clf = classifier
+        #clf = classifier
 
 
         if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier or type(classifier) == LogisticRegression or type(classifier) == LGBMClassifier:
@@ -338,7 +338,10 @@ def train_and_evaluate(df, years, classifier):
             clf.fit(X_train, y_train ,sample_weight=sample_weights)
         
         #Update classifier to be the best estimator
-        #classifier = clf.best_estimator_
+        classifier = clf.best_estimator_
+
+        print("Best parameters set found on development set:")
+        print(classifier)
 
         # Predict probabilities for the test set using the best estimator
         if type(classifier) == SGDClassifier:
@@ -463,9 +466,9 @@ def train_model():
 
         classifiers = {
             "RandomForest": RandomForestClassifier(),
-            "Bagging": BaggingClassifier(),
+            #"Bagging": BaggingClassifier(),
             "KNN": KNeighborsClassifier(n_neighbors=3),
-            "SVM": SVC(probability=True), # Enable probability estimates
+            #"SVM": SVC(probability=True), # Enable probability estimates
             #"DecisionTree": DecisionTreeClassifier(),
             #"MLP": MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1), # Multi-layer Perceptron classifier
             #"LGBM": LGBMClassifier(random_state=42),
