@@ -22,18 +22,20 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
+#add selectkbest
+from sklearn.feature_selection import SelectKBest, f_classif
+
 previous_year_predictions = {}
 
 param_dists = {
         RandomForestClassifier: { #for accuracy, low computational cost
             'n_estimators': [20,40],
             'criterion': ['gini', 'entropy'],
-            'random_state': [16, 64, 256],
+            'random_state': [16, 256],
             'max_depth': [6],
             'max_leaf_nodes': [9],
             'min_samples_split': [4],
-            'min_samples_leaf': [1, 2],
-            'max_features': ['auto'],
+            'min_samples_leaf': [2],
         },
         KNeighborsClassifier: { #for accuracy
             'n_neighbors': [30,50],
@@ -126,6 +128,9 @@ def get_sample_weights(train):
     
     # Increase weight if pos = C or F-C, and rpg > 8, but not if they already have increased weight
     weights[(train['pos'].isin([3, 4])) & (train['rpg'] > 8) & (weights == 1)] = 2
+
+    # Increase weight if pos = G or G-F, and apg > 8, but not if they already have increased weight
+    weights[(train['pos'].isin([1, 5])) & (train['apg'] > 7) & (weights == 1)] = 2
     
     return weights
 
@@ -166,7 +171,23 @@ def merge_with_team_data(df, teams_df):
     # #drop unneeded columns
     # player_teams.drop(['attend','homeW','homeL','homeGames'], axis=1, inplace=True)
 
-    # print(player_teams.head(10))
+    # print(player_teams.head(10)
+
+    #get the players height and weight from players.csv
+    players_file_path = "basketballPlayoffs/players.csv"
+    players_df = read_data(players_file_path)
+    print(players_df['bioID'].head(10))
+
+    #merge with bioID and playerID
+    player_bio = players_df[['bioID', 'height', 'weight']]
+    player_teams = player_teams.merge(player_bio, left_on='playerID', right_on='bioID', how='left')
+
+    #remove players with weight < 50 and height < 50
+    player_teams = player_teams[player_teams['weight'] > 50]
+    player_teams = player_teams[player_teams['height'] > 50]
+
+    #drop weight and height columns
+    player_teams.drop(['weight','height'], axis=1, inplace=True)
 
     #drop unneeded columns
     player_teams.drop('lgID', axis=1, inplace=True)
@@ -207,7 +228,7 @@ def merge_with_team_data(df, teams_df):
     player_teams = player_teams.merge(player_postion, left_on='playerID', right_on='bioID', how='left')
 
     #remove bioID column
-    player_teams.drop('bioID', axis=1, inplace=True)
+    #player_teams.drop('bioID', axis=1, inplace=True)
 
     #replace pos with numbers G=1, F=2, C=3, C-F/F-C=4, G-F/F-G=5
     player_teams['pos'] = player_teams['pos'].replace(['G','F','C','C-F','F-C','G-F','F-G'], [1,2,3,4,4,5,5])
@@ -228,7 +249,7 @@ def merge_with_team_data(df, teams_df):
     player_teams['efg%'] = compute_percentage(player_teams['fgMade'] + 0.5 * player_teams['threeMade'], player_teams['fgAttempted'])
 
     #post effective field goal percentage
-    player_teams['Postefg%'] = compute_percentage(player_teams['PostfgMade'] + 0.5 * player_teams['PostthreeMade'], player_teams['PostfgAttempted'])
+    #player_teams['Postefg%'] = compute_percentage(player_teams['PostfgMade'] + 0.5 * player_teams['PostthreeMade'], player_teams['PostfgAttempted'])
 
     #true shooting percentage
     player_teams['ts%'] = compute_percentage(player_teams['points'], 2 * (player_teams['fgAttempted'] + 0.44 * player_teams['ftAttempted'])) * 2
@@ -280,7 +301,7 @@ def merge_with_team_data(df, teams_df):
 
 
     #per 36 minutes stats
-    player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
+    #player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
 
     #defensive prowess: Defensive Prowess PCA: Use 'steals', 'blocks', and 'dRebounds' to create a 'Defensive Impact' principal component. Combine 'PF' (personal fouls) and 'turnovers' into a 'Defensive Discipline' component to represent careful play.
     player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP'])*1
@@ -298,7 +319,7 @@ def merge_with_team_data(df, teams_df):
     # player_teams['drb%'] = compute_percentage(player_teams['dRebounds'], player_teams['rebounds'])
 
     # #offensive rebounds percentage
-    # player_teams['orb%'] = compute_percentage(player_teams['oRebounds'], player_teams['rebounds'])
+    #player_teams['orb%'] = compute_percentage(player_teams['oRebounds'], player_teams['rebounds'])
     #drop defensive prowess and defensive discipline
     #player_teams.drop(['defensive_prowess','defensive_discipline'], axis=1, inplace=True)
 
@@ -306,10 +327,13 @@ def merge_with_team_data(df, teams_df):
     #"player_teams.drop(['pos'], axis=1, inplace=True)
     player_teams.drop(['ftMade', 'ftAttempted', 'fgMade', 'fgAttempted', 'threeMade', 'threeAttempted', 'GS', 'GP', 'PostftMade', 'PostftAttempted', 'PostfgMade', 'PostfgAttempted', 'PostthreeMade', 'PostthreeAttempted', 'PostGS', 'PostGP', 'PF', 'turnovers', 'dRebounds', 'steals', 'blocks', 'PostPoints', 'PostRebounds', 'PostoRebounds','PostdRebounds','PostSteals','PostAssists', 'minutes', 'points', 'assists','dq','oRebounds','rebounds','PostMinutes','PostBlocks','PostTurnovers','PostPF','PostDQ'], axis=1, inplace=True)
 
-    player_teams.drop(['spg','bpg', 'ppg', 'apg'], axis=1, inplace=True)
+    player_teams.drop(['spg','bpg', 'ppg'], axis=1, inplace=True)
 
     player_teams = aggregate_awards_counts(player_teams)
+    player_teams.drop(['bioID_x','bioID_y'], axis=1, inplace=True)
     #print(player_teams.head(10))
+    #store in csv the player_teams dataframe
+    player_teams.to_csv('new_players_teams.csv', index=False)
 
     return player_teams
 
@@ -383,43 +407,78 @@ def train_and_evaluate(df, years, i, classifier):
     train.sort_values(by='playerID', inplace=True)
     train_before.fillna(0, inplace=True)
     train_before.sort_values(by='playerID', inplace=True)
-    remove_columns = get_columns_to_remove()
 
-    X_train = train_before.drop(remove_columns, axis=1)
-    X_test = test.drop(remove_columns, axis=1)
-    y_train = train['playoff']
+    # Create the pipeline
+    numeric_features = ['career_year', 'efg%', 'ts%', 'rpg', 'apg', 'defensive_prowess', 'defensive_discipline', 'eff']
+    categorical_features = ['pos']
+    #do not consider the playerID column and stint
+
+    # Create the preprocessing and feature selection pipeline
+    numeric_transformer = Pipeline(steps=[
+        ('scaler', StandardScaler())])
+    
+    categorical_transformer = Pipeline(steps=[
+        ('onehot', OneHotEncoder(handle_unknown='ignore'))])
+    
+    preprocessor = ColumnTransformer(
+        transformers=[
+            ('num', numeric_transformer, numeric_features),
+            ('cat', categorical_transformer, categorical_features)])
+    
+    # Build the complete pipeline
+    pipeline = Pipeline(steps=[
+        ('preprocessor', preprocessor),
+        ('feature_selection', SelectKBest(f_classif, k=5)),
+        ('classifier', classifier)])
+    
+    # Adjust param_dist to include pipeline step names and feature selection hyperparameter 'k'
+    param_dist = {**{
+        'feature_selection__k': [5, 10],  # Example hyperparameters for 'k'
+        'classifier__n_estimators': [20, 40],
+        'classifier__max_depth': [6, None],
+        # Add other parameters and respective ranges here
+    }}
+    
+    # Initialize GridSearchCV with the pipeline
+    clf = GridSearchCV(pipeline, param_dist, cv=5, scoring='accuracy', refit=True, verbose=2)
 
     param_dist = param_dists.get(type(classifier), {})
 
     # Get sample weights
     sample_weights = get_sample_weights(train)
 
-    clf = GridSearchCV(classifier, param_dist, cv=5, scoring='accuracy',refit=True, verbose=3)
-    #randomized search for accuracy, low computational cost
-    #clf = RandomizedSearchCV(classifier, param_dist, cv=5, scoring='fowlkes_mallows_score', refit=True, verbose=2)
-    #clf = BayesSearchCV(classifier, param_dist, cv=5, scoring='accuracy', verbose=2, refit=True)
+    # Prepare training and testing data
+    remove_columns = get_columns_to_remove()
+    X_train = train_before.drop(remove_columns, axis=1)
+    X_test = test.drop(remove_columns, axis=1)
+    y_train = train['playoff']
 
-    #clf = classifier
-
-    if type(classifier) == KNeighborsClassifier or type(classifier) == SVC or type(classifier) == MLPClassifier:
+    # Fit the model
+    #if KNN dont use sample weights
+    if classifier.__class__.__name__ == 'KNeighborsClassifier':
         clf.fit(X_train, y_train)
     else:
-        clf.fit(X_train, y_train ,sample_weight=sample_weights)
-
-    #clf.fit(X_train, y_train)
-
-    classifier = clf.best_estimator_
+        clf.fit(X_train, y_train, classifier__sample_weight=get_sample_weights(train))  # Adjust for your sample weights
 
     print(f"Best parameters: {clf.best_params_}")
-
-    #store in results/std.txt year 4 predictions and training accuracy
     print(f"Training accuracy: {clf.score(X_train, y_train)}")
+    support_mask = clf.best_estimator_.named_steps['feature_selection'].get_support()
+    # Retrieve feature names from the ColumnTransformer
+    all_features = clf.best_estimator_.named_steps['preprocessor'].transformers_[0][2] + \
+                   list(clf.best_estimator_.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out())
 
-    
-    if type(classifier) == SGDClassifier  or type(classifier) == SVC or type(classifier) == MLPClassifier:
-        proba = classifier.predict(X_test)
+    # Map support mask to feature names
+    selected_features = [all_features[i] for i, val in enumerate(support_mask) if val]
+    print(f"Selected features: {selected_features}")
+
+    #print the best k features
+    #print(f"Best features: {X_train.columns[clf.best_estimator_.named_steps['feature_selection'].get_support()]}")
+
+    # Predict probabilities or class labels depending on classifier type
+    if hasattr(clf.best_estimator_.named_steps['classifier'], 'predict_proba'):
+        proba = clf.predict_proba(X_test)[:, 1]
     else:
-        proba = classifier.predict_proba(X_test)[:, 1]
+        proba = clf.predict(X_test)
 
     test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
 
@@ -640,12 +699,12 @@ def train_model():
 
         classifiers = {
             "RandomForest": RandomForestClassifier(),
-            "KNN": KNeighborsClassifier(),
+            #"KNN": KNeighborsClassifier(),
             #"SVM": SVC(probability=True), # Enable probability estimates
             #"Bagging": BaggingClassifier(),
             #"DecisionTree": DecisionTreeClassifier(random_state=15),
             #"MLP": MLPClassifier(), # Multi-layer Perceptron classifier
-            #"LGBM": LGBMClassifier(),
+            "LGBM": LGBMClassifier(),
             #"SGDClassifier": SGDClassifier(),
             #"LogisticRegression": LogisticRegression(), # Logistic Regression (doesn't work with sparse data)
 
