@@ -91,6 +91,28 @@ param_dists = {
 
 logging.basicConfig(level=logging.INFO)
 
+def predict_year_11(model, year_11_data, preprocessor):
+    """
+    Make predictions for year 11 using the provided model.
+    Only the team data is known, other features are set to default values.
+    """
+    # Keep only the team-related information and playerID
+    X_year_11 = year_11_data[['playerID', 'tmID', 'confID']]
+    
+    # Preprocess the data with the pipeline's preprocessor
+    X_processed = preprocessor.transform(X_year_11)
+
+    # Make predictions
+    year_11_predictions = model.predict(X_processed)
+
+    # Combine predictions with player IDs for clarity
+    year_11_results = pd.DataFrame({
+        'playerID': X_year_11['playerID'],
+        'year': 11,
+        'predicted_playoff': year_11_predictions
+    })
+    return year_11_results
+
 def read_data(file_path):
     try:
         df = pd.read_csv(file_path)
@@ -135,8 +157,60 @@ def get_sample_weights(train):
     return weights
 
 
+def calculate_and_normalize_stats(player_teams):
+    # Calculate effective field goal percentage and true shooting percentage
+    player_teams['efg%'] = player_teams.apply(
+        lambda row: compute_percentage(row['fgMade'] + 0.5 * row['threeMade'], row['fgAttempted']),
+        axis=1
+    )
+    player_teams['ts%'] = player_teams.apply(
+        lambda row: compute_percentage(row['points'], 2 * (row['fgAttempted'] + 0.44 * row['ftAttempted'])),
+        axis=1
+    )
+
+    # Normalize efg% and ts%
+    for stat in ['efg%', 'ts%']:
+        max_stat_by_year = player_teams.groupby('year')[stat].transform('max')
+        min_stat_by_year = player_teams.groupby('year')[stat].transform('min')
+        player_teams[stat] = (player_teams[stat] - min_stat_by_year) / (max_stat_by_year - min_stat_by_year)
+
+    # Calculate per game stats
+    for stat in ['points', 'rebounds', 'assists', 'steals', 'blocks']:
+        player_teams[f'{stat[:1]}pg'] = player_teams.apply(
+            lambda row: round(row[stat] / row['GP'], 2) if row['GP'] > 0 else 0,
+            axis=1
+        )
+
+    # Calculate efficiency
+    player_teams['eff'] = player_teams.apply(
+        lambda row: row['ppg'] + row['rpg'] + row['apg'] + row['spg'] + row['bpg'] -
+                    (row['fgAttempted'] - row['fgMade']) - (row['ftAttempted'] - row['ftMade']) - row['turnovers'],
+        axis=1
+    )
+
+    # Normalize efficiency
+    max_eff_by_year = player_teams.groupby('year')['eff'].transform('max')
+    min_eff_by_year = player_teams.groupby('year')['eff'].transform('min')
+    player_teams['eff'] = (player_teams['eff'] - min_eff_by_year) / (max_eff_by_year - min_eff_by_year)
+
+    # Add any additional statistics calculations here
+    #add defensive_prowess
+    player_teams['defensive_prowess'] = player_teams.apply(
+        lambda row: compute_percentage(row['blocks'] + row['steals'], row['turnovers']),
+        axis=1
+    )
+    #add defensive_discipline
+    player_teams['defensive_discipline'] = player_teams.apply(
+        lambda row: compute_percentage(row['blocks'] + row['steals'], row['PF']),
+        axis=1
+    )
+
+    return player_teams
+
+
 def compute_percentage(numerator, denominator):
-    return round(numerator.divide(denominator).where(denominator != 0, 0.0)*100,2)
+    """Compute percentage and handle division by zero."""
+    return round(numerator / denominator * 100, 2) if denominator else 0
 
 def aggregate_awards_counts(player_teams):
     #get from awards_players.csv
@@ -151,191 +225,75 @@ def aggregate_awards_counts(player_teams):
     return player_teams
 
 def merge_with_team_data(df, teams_df):
+    # Merge player data with team data
+    player_teams = df.merge(
+        teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound', 'semis', 'finals']],
+        on=['tmID', 'year'],
+        how='left'
+    )
 
-    # temp_player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID']], on=['tmID', 'year'], how='left')
-    # temp_player_teams.drop('lgID', axis=1, inplace=True)
-    
-    player_teams = df.merge(teams_df[['tmID', 'year', 'playoff', 'confID', 'firstRound','semis','finals']], on=['tmID', 'year'], how='left')
-    #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
+    # Define playoff_exit status based on playoff round outcomes
+    player_teams['playoff_exit'] = 0
+    for index, row in player_teams.iterrows():
+        if row['playoff'] == 1:
+            if row['firstRound'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 1
+            elif row['semis'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 2
+            elif row['finals'] == 0:
+                player_teams.at[index, 'playoff_exit'] = 3
+            elif row['finals'] == 1:
+                player_teams.at[index, 'playoff_exit'] = 4
 
-    # #for each player, get the avg attendance of their tmID in that year, get the column attend in teams.csv
-    # player_teams = player_teams.merge(teams_df[['tmID', 'year', 'attend']], on=['tmID', 'year'], how='left')
+    # Drop unnecessary columns
+    player_teams.drop(['firstRound', 'semis', 'finals', 'lgID'], axis=1, inplace=True)
 
-    # player_teams['homeW'] = player_teams.merge(teams_df[['tmID', 'year', 'homeW']], on=['tmID', 'year'], how='left')['homeW']
-    # player_teams['homeL'] = player_teams.merge(teams_df[['tmID', 'year', 'homeL']], on=['tmID', 'year'], how='left')['homeL']
-
-    # player_teams['homeGames'] = player_teams['homeW'] + player_teams['homeL']
-
-    #player_teams['avgAttend'] = player_teams['attend']/player_teams['homeGames']
-
-    # #drop unneeded columns
-    # player_teams.drop(['attend','homeW','homeL','homeGames'], axis=1, inplace=True)
-
-    # print(player_teams.head(10)
-
-    #get the players height and weight from players.csv
-    players_file_path = "basketballPlayoffs/players.csv"
-    players_df = read_data(players_file_path)
-    print(players_df['bioID'].head(10))
-
-    #merge with bioID and playerID
-    player_bio = players_df[['bioID', 'height', 'weight']]
+    # Merge player bio data
+    players_df = read_data("basketballPlayoffs/players.csv")
+    player_bio = players_df[['bioID', 'height', 'weight', 'pos']]
     player_teams = player_teams.merge(player_bio, left_on='playerID', right_on='bioID', how='left')
 
-    #remove players with weight < 50 and height < 50
-    player_teams = player_teams[player_teams['weight'] > 50]
-    player_teams = player_teams[player_teams['height'] > 50]
+    # Remove players with weight < 50 and height < 50, and drop these columns
+    player_teams = player_teams[(player_teams['weight'] > 50) & (player_teams['height'] > 50)]
+    player_teams.drop(['weight', 'height', 'bioID'], axis=1, inplace=True)
 
-    #drop weight and height columns
-    player_teams.drop(['weight','height'], axis=1, inplace=True)
+    print(player_teams.columns)
 
-    #drop unneeded columns
-    player_teams.drop('lgID', axis=1, inplace=True)
-
-    # Assuming you have a column 'year' to sort by
+    # Calculate career year
     player_teams = player_teams.sort_values(by=['playerID', 'year'])
     player_teams['career_year'] = player_teams.groupby('playerID').cumcount() + 1
 
-    #swap all the W and L in firstRound, semis, finals columns for 1 and 0
-    player_teams['firstRound'] = player_teams['firstRound'].replace(['W','L'], [1,0])
-    player_teams['semis'] = player_teams['semis'].replace(['W','L'], [1,0])
-    player_teams['finals'] = player_teams['finals'].replace(['W','L'], [1,0])
+    # Replace position values with numerical representations
+    player_teams['pos'] = player_teams['pos'].replace(
+        ['G', 'F', 'C', 'C-F', 'F-C', 'G-F', 'F-G'],
+        [1, 2, 3, 4, 4, 5, 5]
+    )
 
-    
-    player_teams['playoff_exit'] = 0
-    # Iterate over the rows of the DataFrame
-    for index, row in player_teams.iterrows():
-        if row['playoff'] == 1:  # Proceed only if the team made the playoffs
-            if row['firstRound'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 1
-            elif row['semis'] == 0:  # Checks if 'playoff_exit' hasn't been set already
-                player_teams.at[index, 'playoff_exit'] = 2
-            elif row['finals'] == 0:
-                player_teams.at[index, 'playoff_exit'] = 6
-            elif row['finals'] == 1:
-                player_teams.at[index, 'playoff_exit'] = 8
-            # Add more conditions if there are more rounds or specific cases to handle
+    # Calculate and normalize various percentages and stats
+    player_teams = calculate_and_normalize_stats(player_teams)
 
-    #remove unneeded columns
-    player_teams.drop(['firstRound','semis','finals'], axis=1, inplace=True)
+    # Remove additional unneeded columns
+    columns_to_remove = [
+        'ftMade', 'ftAttempted', 'fgMade', 'fgAttempted', 'threeMade', 'threeAttempted',
+        'GS', 'GP', 'PostftMade', 'PostftAttempted', 'PostfgMade', 'PostfgAttempted', 
+        'PostthreeMade', 'PostthreeAttempted', 'PostGS', 'PostGP', 'PF', 'turnovers', 
+        'dRebounds', 'steals', 'blocks', 'PostPoints', 'PostRebounds', 'PostoRebounds', 
+        'PostdRebounds', 'PostSteals', 'PostAssists'
+        #, 
+        #'minutes', 'points', 'assists', 
+        #'dq', 'oRebounds', 'rebounds', 'PostMinutes', 'PostBlocks', 'PostTurnovers', 
+        #'PostPF', 'PostDQ', 'spg', 'bpg', 'ppg'
+    ]
+    player_teams.drop(columns_to_remove, axis=1, inplace=True)
 
-    #add position column, get it from players.csv
-    players_file_path = "../ac/basketballPlayoffs/players.csv"
-    players_df = read_data(players_file_path)
-
-    player_postion = players_df[['bioID', 'pos']]
-
-    player_teams = player_teams.merge(player_postion, left_on='playerID', right_on='bioID', how='left')
-
-    #remove bioID column
-    #player_teams.drop('bioID', axis=1, inplace=True)
-
-    #replace pos with numbers G=1, F=2, C=3, C-F/F-C=4, G-F/F-G=5
-    player_teams['pos'] = player_teams['pos'].replace(['G','F','C','C-F','F-C','G-F','F-G'], [1,2,3,4,4,5,5])
-
-    # # Regular Season Percentages
-    #player_teams['ft%'] = compute_percentage(player_teams['ftMade'], player_teams['ftAttempted'])
-    # player_teams['fg%'] = compute_percentage(player_teams['fgMade'], player_teams['fgAttempted'])
-    #player_teams['three%'] = compute_percentage(player_teams['threeMade'], player_teams['threeAttempted'])*10
-    # player_teams['gs%'] = compute_percentage(player_teams['GS'], player_teams['GP'])*0.5
-
-    # # Playoffs Percentages
-    #player_teams['Postft%'] = compute_percentage(player_teams['PostftMade'], player_teams['PostftAttempted'])
-    # player_teams['Postfg%'] = compute_percentage(player_teams['PostfgMade'], player_teams['PostfgAttempted'])
-    # player_teams['Postthree%'] = compute_percentage(player_teams['PostthreeMade'], player_teams['PostthreeAttempted'])
-    # player_teams['Postgs%'] = compute_percentage(player_teams['PostGS'], player_teams['PostGP'])
-
-    #effective field goal percentage
-    player_teams['efg%'] = compute_percentage(player_teams['fgMade'] + 0.5 * player_teams['threeMade'], player_teams['fgAttempted'])
-
-    #post effective field goal percentage
-    #player_teams['Postefg%'] = compute_percentage(player_teams['PostfgMade'] + 0.5 * player_teams['PostthreeMade'], player_teams['PostfgAttempted'])
-
-    #true shooting percentage
-    player_teams['ts%'] = compute_percentage(player_teams['points'], 2 * (player_teams['fgAttempted'] + 0.44 * player_teams['ftAttempted'])) * 2
-
-    max_efg_by_year = player_teams.groupby('year')['efg%'].transform('max')
-    max_ts_by_year = player_teams.groupby('year')['ts%'].transform('max')
-    min_efg_by_year = player_teams.groupby('year')['efg%'].transform('min')
-    min_ts_by_year = player_teams.groupby('year')['ts%'].transform('min')
-
-    # Apply the normalization within each year
-    player_teams['efg%'] = (player_teams['efg%'] - min_efg_by_year) / (max_efg_by_year - min_efg_by_year)
-    player_teams['ts%'] = (player_teams['ts%'] - min_ts_by_year) / (max_ts_by_year - min_ts_by_year)
-
-    #drop efg and ts
-    #player_teams.drop(['efg%','ts%'], axis=1, inplace=True)
-
-    player_teams['ppg'] = round(player_teams['points']/player_teams['GP'],2)
-    player_teams['rpg'] = round(player_teams['rebounds']/player_teams['GP'],2)
-    player_teams['apg'] = round(player_teams['assists']/player_teams['GP'],2)
-    player_teams['spg'] = round(player_teams['steals']/player_teams['GP'],2)
-    player_teams['bpg'] = round(player_teams['blocks']/player_teams['GP'],2)
-
-    #efficiency
-    player_teams['eff'] = player_teams['ppg'] + player_teams['rpg'] + player_teams['apg'] + player_teams['spg'] + player_teams['bpg'] - (player_teams['fgAttempted'] - player_teams['fgMade']) - (player_teams['ftAttempted'] - player_teams['ftMade']) - player_teams['turnovers']
-
-    # Calculate the min and max of `eff` for each year
-    min_eff_by_year = player_teams.groupby('year')['eff'].transform('min')
-    max_eff_by_year = player_teams.groupby('year')['eff'].transform('max')
-
-    # Apply the normalization within each year
-    player_teams['eff'] = (player_teams['eff'] - min_eff_by_year) / (max_eff_by_year - min_eff_by_year)
-
-
-    #drop shooting percentages
-    #player_teams.drop(['ft%','fg%','three%','gs%','Postft%','Postfg%','Postthree%','Postgs%'], axis=1, inplace=True)
-
-
-    # # For guards or players with mixed positions including guard
-    # player_teams.loc[player_teams['pos'].str.contains('G'), 'apg'] *= 1.5
-    # player_teams.loc[player_teams['pos'].str.contains('G'), 'spg'] *= 1.5
-
-    # # For centers or players with mixed positions including center
-    # player_teams.loc[player_teams['pos'].str.contains('C'), 'rpg'] *= 1.5
-    # # Assuming 'bpg' is blocks per game and exists in your DataFrame
-    # player_teams.loc[player_teams['pos'].str.contains('C'), 'bpg'] *= 1.5
-
-    # # For forwards or players with mixed positions including forward
-    # player_teams.loc[player_teams['pos'].str.contains('F'), 'ppg'] *= 1.5
-
-
-    #per 36 minutes stats
-    #player_teams['pp36'] = compute_percentage(player_teams['points'], player_teams['minutes'])*36
-
-    #defensive prowess: Defensive Prowess PCA: Use 'steals', 'blocks', and 'dRebounds' to create a 'Defensive Impact' principal component. Combine 'PF' (personal fouls) and 'turnovers' into a 'Defensive Discipline' component to represent careful play.
-    player_teams['defensive_prowess'] = compute_percentage(player_teams['steals'] + player_teams['blocks'] + player_teams['dRebounds'], player_teams['GP'])*1
-    player_teams['defensive_discipline'] = compute_percentage(player_teams['PF'] + player_teams['turnovers'], player_teams['GP'])*1
-    
-    #normalize defensive prowess and defensive discipline
-    max_defensive_prowess_by_year = player_teams.groupby('year')['defensive_prowess'].transform('max')
-    max_defensive_discipline_by_year = player_teams.groupby('year')['defensive_discipline'].transform('max')
-    min_defensive_prowess_by_year = player_teams.groupby('year')['defensive_prowess'].transform('min')
-    min_defensive_discipline_by_year = player_teams.groupby('year')['defensive_discipline'].transform('min')
-
-    # Apply the normalization within each year
-    player_teams['defensive_prowess'] = (player_teams['defensive_prowess'] - min_defensive_prowess_by_year) / (max_defensive_prowess_by_year - min_defensive_prowess_by_year)
-    player_teams['defensive_discipline'] = (player_teams['defensive_discipline'] - min_defensive_discipline_by_year) / (max_defensive_discipline_by_year - min_defensive_discipline_by_year)
-    # player_teams['drb%'] = compute_percentage(player_teams['dRebounds'], player_teams['rebounds'])
-
-    # #offensive rebounds percentage
-    #player_teams['orb%'] = compute_percentage(player_teams['oRebounds'], player_teams['rebounds'])
-    #drop defensive prowess and defensive discipline
-    #player_teams.drop(['defensive_prowess','defensive_discipline'], axis=1, inplace=True)
-
-    #remove unneeded columns
-    #"player_teams.drop(['pos'], axis=1, inplace=True)
-    player_teams.drop(['ftMade', 'ftAttempted', 'fgMade', 'fgAttempted', 'threeMade', 'threeAttempted', 'GS', 'GP', 'PostftMade', 'PostftAttempted', 'PostfgMade', 'PostfgAttempted', 'PostthreeMade', 'PostthreeAttempted', 'PostGS', 'PostGP', 'PF', 'turnovers', 'dRebounds', 'steals', 'blocks', 'PostPoints', 'PostRebounds', 'PostoRebounds','PostdRebounds','PostSteals','PostAssists', 'minutes', 'points', 'assists','dq','oRebounds','rebounds','PostMinutes','PostBlocks','PostTurnovers','PostPF','PostDQ'], axis=1, inplace=True)
-
-    player_teams.drop(['spg','bpg', 'ppg'], axis=1, inplace=True)
-
+    # Aggregate awards counts
     player_teams = aggregate_awards_counts(player_teams)
-    player_teams.drop(['bioID_x','bioID_y'], axis=1, inplace=True)
-    #print(player_teams.head(10))
-    #store in csv the player_teams dataframe
+
+    # Store the processed data into a new CSV file
     player_teams.to_csv('new_players_teams.csv', index=False)
 
     return player_teams
+
 
 def get_columns_to_remove():
     return ['tmID', 'playerID','playoff','confID']
@@ -349,8 +307,6 @@ def players_awards(df):
     merged_df.rename(columns={'award': 'awards_count'}, inplace=True)
     merged_df.fillna(0, inplace=True)
     return merged_df 
-
-
 
 
 def train_and_evaluate(df, years, i, classifier):
@@ -471,6 +427,9 @@ def train_and_evaluate(df, years, i, classifier):
     selected_features = [all_features[i] for i, val in enumerate(support_mask) if val]
     print(f"Selected features: {selected_features}")
 
+    #print all columns
+    print(f"all columns: {X_train.columns}")
+
     #print the best k features
     #print(f"Best features: {X_train.columns[clf.best_estimator_.named_steps['feature_selection'].get_support()]}")
 
@@ -480,7 +439,10 @@ def train_and_evaluate(df, years, i, classifier):
     else:
         proba = clf.predict(X_test)
 
-    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba})
+    test_proba_with_ids = pd.DataFrame({'playerID': test['playerID'], 'probability': proba, 'year': test['year']})
+
+    #add test_proba_with_ids to a csv file
+    test_proba_with_ids.to_csv('test_proba_with_ids.csv', index=False)
 
     # Initialize team_avg_predictions with all teams from the actual_year
     team_avg_predictions = {tmID: {'probs': [], 'confID': confID, 'players':[]} for tmID, confID in zip(actual['tmID'], actual['confID'])}
@@ -564,7 +526,7 @@ def train_and_evaluate(df, years, i, classifier):
     # Calculate accuracy
     accuracy = sum([1 for result in team_results if result['Predicted'] == result['Actual']]) / 8
 
-    return team_results, accuracy, player_results
+    return team_results, accuracy, player_results, clf
 
 
 def plot_teams_comparison(prediction_data, classifier_name):
@@ -684,12 +646,13 @@ def plot_player(prediction_data):
     plt.tight_layout()
     plt.show()
 
+
+
 def train_model():
     warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
 
     data_file_path = "basketballPlayoffs/players_teams.csv"
     df = read_data(data_file_path)
-
     teams_df = get_teams_data()
     if df is not None and teams_df is not None:
         df = merge_with_team_data(df, teams_df)
@@ -704,7 +667,7 @@ def train_model():
             #"Bagging": BaggingClassifier(),
             #"DecisionTree": DecisionTreeClassifier(random_state=15),
             #"MLP": MLPClassifier(), # Multi-layer Perceptron classifier
-            "LGBM": LGBMClassifier(),
+            #"LGBM": LGBMClassifier(),
             #"SGDClassifier": SGDClassifier(),
             #"LogisticRegression": LogisticRegression(), # Logistic Regression (doesn't work with sparse data)
 
@@ -714,15 +677,36 @@ def train_model():
         team_data = []
         players_data = []
 
+        models = {}
         for classifier_name, classifier in classifiers.items():
             results = []
-            for i in range(1, len(years) - 1):  # Adjust to ensure there's always a year to predict after the test year
-                team_results, accuracy, player_results = train_and_evaluate(df, years, i, classifier)
-                if team_results:  # Check if team_results is not None
+            for i in range(1, len(years) - 1):
+                team_results, accuracy, player_results, grid_search_obj = train_and_evaluate(df, years, i, classifier)
+                if team_results:
                     team_data.extend(team_results)
                     players_data.extend(player_results)
                     results.append(accuracy)
-                    results_dict[classifier_name] = results
+                    models[classifier_name] = grid_search_obj
+
+            results_dict[classifier_name] = results
+
+        # best_model_name = max(results_dict, key=lambda k: sum(results_dict[k])/len(results_dict[k]))
+        # best_grid_search = models[best_model_name] 
+        # best_pipeline = best_grid_search.best_estimator_
+        # best_model = best_pipeline.named_steps['classifier']
+        # preprocessor = best_pipeline.named_steps['preprocessor']
+
+        # print(f"Best model: {best_model_name}")
+
+        # year_11_playerTeams = read_data("basketballPlayoffs/competition/players_teams.csv")
+        # year_11_teams = read_data("basketballPlayoffs/competition/teams.csv")
+
+        # # Join confID Column to year_11_playerTeams
+        # year_11_playerTeams = year_11_playerTeams.merge(year_11_teams[['tmID', 'confID']], on=['tmID'], how='left')
+
+        # # Predict for year 11
+        # prediction_11 = predict_year_11(best_model, year_11_playerTeams, preprocessor)
+        # print("Prediction for year 11:", prediction_11.head())
 
         predictions_df = pd.DataFrame(team_data)
         predictions_df.to_csv('predictions_results-playersTeams.csv', index=False)
