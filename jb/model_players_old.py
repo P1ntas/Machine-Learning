@@ -131,7 +131,7 @@ def pre_process_data(df):
     return df
 
 def get_teams_data():
-    teams_file_path = "basketballPlayoffs/teams.csv"
+    teams_file_path = "data/teams.csv"
     teams_df = read_data(teams_file_path)
     if teams_df is not None:
         return pre_process_data(teams_df)
@@ -214,7 +214,7 @@ def compute_percentage(numerator, denominator):
 
 def aggregate_awards_counts(player_teams):
     #get from awards_players.csv
-    awards_file_path = "../ac/basketballPlayoffs/awards_players.csv"
+    awards_file_path = "../ac/data/awards_players.csv"
     awards_df = read_data(awards_file_path)
     #add a column prizeCount to player_teams on each year
     player_teams['prizeCount'] = 0
@@ -249,7 +249,7 @@ def merge_with_team_data(df, teams_df):
     player_teams.drop(['firstRound', 'semis', 'finals', 'lgID'], axis=1, inplace=True)
 
     # Merge player bio data
-    players_df = read_data("basketballPlayoffs/players.csv")
+    players_df = read_data("data/players.csv")
     player_bio = players_df[['bioID', 'height', 'weight', 'pos']]
     player_teams = player_teams.merge(player_bio, left_on='playerID', right_on='bioID', how='left')
 
@@ -299,7 +299,7 @@ def get_columns_to_remove():
     return ['tmID', 'playerID','playoff','confID']
 
 def players_awards(df):
-    award_path = "basketballPlayoffs/awards_players.csv"
+    award_path = "data/awards_players.csv"
     players_awards = read_data(award_path)
     merged_df = df.merge(players_awards.groupby(['playerID', 'year'])['award'].count().reset_index(),
                          on=['playerID', 'year'], how='left')
@@ -651,7 +651,7 @@ def plot_player(prediction_data):
 def train_model():
     warnings.filterwarnings('ignore', message="is_sparse is deprecated and will be removed in a future version.")
 
-    data_file_path = "basketballPlayoffs/players_teams.csv"
+    data_file_path = "data/players_teams.csv"
     df = read_data(data_file_path)
     teams_df = get_teams_data()
     if df is not None and teams_df is not None:
@@ -698,8 +698,8 @@ def train_model():
 
         # print(f"Best model: {best_model_name}")
 
-        # year_11_playerTeams = read_data("basketballPlayoffs/competition/players_teams.csv")
-        # year_11_teams = read_data("basketballPlayoffs/competition/teams.csv")
+        # year_11_playerTeams = read_data("data/competition/players_teams.csv")
+        # year_11_teams = read_data("data/competition/teams.csv")
 
         # # Join confID Column to year_11_playerTeams
         # year_11_playerTeams = year_11_playerTeams.merge(year_11_teams[['tmID', 'confID']], on=['tmID'], how='left')

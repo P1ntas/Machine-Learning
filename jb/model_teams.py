@@ -137,7 +137,7 @@ def plot_teams_comparison(years, prediction_data):
 
 
 def train_model():
-    data_file_path = "../basketballPlayoffs/teams.csv"
+    data_file_path = "../data/teams.csv"
     df = read_data(data_file_path)
 
     if df is not None:

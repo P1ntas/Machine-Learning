@@ -49,7 +49,7 @@ def pre_process_data(df):
     return df
 
 def get_teams_data():
-    teams_file_path = "../ac/basketballPlayoffs/teams.csv"
+    teams_file_path = "../ac/data/teams.csv"
     teams_df = read_data(teams_file_path)
     if teams_df is not None:
         return pre_process_data(teams_df)
@@ -65,7 +65,7 @@ def compute_percentage(numerator, denominator):
 
 def aggregate_awards_counts(player_teams):
     #get from awards_players.csv
-    awards_file_path = "../ac/basketballPlayoffs/awards_players.csv"
+    awards_file_path = "../ac/data/awards_players.csv"
     awards_df = read_data(awards_file_path)
     #add a column prizeCount to player_teams on each year
     player_teams['prizeCount'] = 0
@@ -85,7 +85,7 @@ def merge_with_team_data(df, teams_df):
     player_teams['career_year'] = player_teams.groupby('playerID').cumcount() + 1
 
     #add position column, get it from players.csv
-    players_file_path = "../ac/basketballPlayoffs/players.csv"
+    players_file_path = "../ac/data/players.csv"
     players_df = read_data(players_file_path)
 
     #create column playoff_exit (0 if not in playoffs, 1 if lost in first round, 2 if lost in semis, 3 if lost in finals, 4 if won) get the info in the columns firstRound, semis, finals
@@ -455,7 +455,7 @@ def plot_teams_comparison(prediction_data):
 
 
 def train_model():
-    data_file_path = "../ac/basketballPlayoffs/players_teams.csv"
+    data_file_path = "../ac/data/players_teams.csv"
     df = read_data(data_file_path)
 
     teams_df = get_teams_data()

@@ -4,7 +4,7 @@ file_names = ["awards_players.csv", "coaches.csv", "players_teams.csv", "players
 
 for file_name in file_names:
     try:
-        df = pd.read_csv("basketballPlayoffs/" + file_name)
+        df = pd.read_csv("data/" + file_name)
         print(f"First 5 lines of {file_name}:\n")
         print(df.head(5))
         print("\n" + "=" * 40 + "\n")

@@ -81,13 +81,13 @@ def feature_engineering():
 if __name__ == "__main__":
     # Load Data
 
-    awards_players = pd.read_csv("basketballPlayoffs/awards_players.csv")
-    coaches = pd.read_csv("basketballPlayoffs/coaches.csv")
-    players = pd.read_csv("basketballPlayoffs/players.csv")
-    players_teams = pd.read_csv("basketballPlayoffs/players_teams.csv")
-    teams = pd.read_csv("basketballPlayoffs/teams.csv")
-    series_post = pd.read_csv("basketballPlayoffs/series_post.csv")
-    teams_post = pd.read_csv("basketballPlayoffs/teams_post.csv")
+    awards_players = pd.read_csv("data/awards_players.csv")
+    coaches = pd.read_csv("data/coaches.csv")
+    players = pd.read_csv("data/players.csv")
+    players_teams = pd.read_csv("data/players_teams.csv")
+    teams = pd.read_csv("data/teams.csv")
+    series_post = pd.read_csv("data/series_post.csv")
+    teams_post = pd.read_csv("data/teams_post.csv")
 
     # Data Cleaning
     awards_players = clean_data(awards_players)
