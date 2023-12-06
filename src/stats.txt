@@ -2,539 +2,539 @@
 Statistics of playerID
 --------------------------------------------------
 Min: 0
-Max: 549
-Mean: 283.3643807574207
-Median: 288.0
-Standard deviation: 151.6900902632337
-Skewness: -0.10559775655531252
-Variance: 23009.883484067992
-Kurtosis: -1.1476501937334214
-Interquartile Range: 263.0 | Q1: 145.0 | Q3: 408.0
+Max: 548
+Mean: 288.45863570391873
+Median: 298.0
+Standard deviation: 150.01965506457523
+Skewness: -0.13463092099996118
+Variance: 22505.89690569413
+Kurtosis: -1.1443302463310936
+Interquartile Range: 266.0 | Q1: 145.0 | Q3: 411.0
 --------------------------------------------------
 Statistics of year
 --------------------------------------------------
-Min: 3
+Min: 4
 Max: 11
-Mean: 6.888433981576254
-Median: 7.0
-Standard deviation: 2.5692936341882247
-Skewness: 0.005978483136054617
-Variance: 6.601269778680135
-Kurtosis: -1.2336745586170548
-Interquartile Range: 4.0 | Q1: 5.0 | Q3: 9.0
+Mean: 7.5079825834542815
+Median: 8.0
+Standard deviation: 2.238084111035221
+Skewness: -0.049951721314465077
+Variance: 5.009020488068316
+Kurtosis: -1.2034837832282892
+Interquartile Range: 3.0 | Q1: 6.0 | Q3: 9.0
 --------------------------------------------------
 Statistics of tmID
 --------------------------------------------------
 Min: 555
 Max: 745
-Mean: 565.7840327533265
+Mean: 566.1973875181422
 Median: 564.0
-Standard deviation: 16.224204965206294
-Skewness: 9.658223297268629
-Variance: 263.2248267530245
-Kurtosis: 104.46318762439648
-Interquartile Range: 9.0 | Q1: 560.0 | Q3: 569.0
+Standard deviation: 17.677963687646905
+Skewness: 9.022117699213776
+Variance: 312.51040014176255
+Kurtosis: 89.08065548904071
+Interquartile Range: 8.0 | Q1: 561.0 | Q3: 569.0
 --------------------------------------------------
 Statistics of GP
 --------------------------------------------------
 Min: 0.0
 Max: 36.0
-Mean: 24.926305015353122
+Mean: 25.040638606676342
 Median: 31.0
-Standard deviation: 11.574805435159085
-Skewness: -1.1958507627024646
-Variance: 133.9761208617883
-Kurtosis: -0.054602016423415556
-Interquartile Range: 14.0 | Q1: 20.0 | Q3: 34.0
+Standard deviation: 11.778038177579447
+Skewness: -1.196167229010086
+Variance: 138.72218331251898
+Kurtosis: -0.0786542603871343
+Interquartile Range: 13.0 | Q1: 21.0 | Q3: 34.0
 --------------------------------------------------
 Statistics of oRebounds
 --------------------------------------------------
 Min: 0.0
 Max: 4.7
-Mean: 0.9566018423746162
-Median: 0.82
-Standard deviation: 0.7951696631237511
-Skewness: 1.06653333061232
-Variance: 0.6322947931523398
-Kurtosis: 1.2320822648343785
-Interquartile Range: 1.0399999999999998 | Q1: 0.34 | Q3: 1.38
+Mean: 0.9771407837445574
+Median: 0.85
+Standard deviation: 0.8085573099447451
+Skewness: 1.0620711449097122
+Variance: 0.6537649234650825
+Kurtosis: 1.3063868486842605
+Interquartile Range: 1.06 | Q1: 0.35 | Q3: 1.41
 --------------------------------------------------
 Statistics of dRebounds
 --------------------------------------------------
 Min: 0.0
 Max: 9.37
-Mean: 2.1761514841351075
-Median: 1.97
-Standard deviation: 1.6286762733147901
-Skewness: 0.9079374472152197
-Variance: 2.6525864032585527
-Kurtosis: 1.146326903144275
-Interquartile Range: 2.22 | Q1: 0.96 | Q3: 3.18
+Mean: 2.2558925979680695
+Median: 2.06
+Standard deviation: 1.638750887415832
+Skewness: 0.7763130056662355
+Variance: 2.685504471006177
+Kurtosis: 0.7887567761034178
+Interquartile Range: 2.29 | Q1: 1.0 | Q3: 3.29
 --------------------------------------------------
 Statistics of dq
 --------------------------------------------------
 Min: 0.0
 Max: 0.5
-Mean: 0.017277379733879224
+Mean: 0.01734397677793904
 Median: 0.0
-Standard deviation: 0.037938121400805457
-Skewness: 4.287309277662733
-Variance: 0.0014393010554222528
-Kurtosis: 33.49260966700809
+Standard deviation: 0.03775763201581
+Skewness: 4.743923134045874
+Variance: 0.0014256387754413202
+Kurtosis: 42.59947078639106
 Interquartile Range: 0.03 | Q1: 0.0 | Q3: 0.03
 --------------------------------------------------
 Statistics of PostPoints
 --------------------------------------------------
 Min: 0.0
 Max: 26.5
-Mean: 3.8015250767656092
+Mean: 4.2467198838896945
 Median: 0.0
-Standard deviation: 5.571783166210437
-Skewness: 1.3616520480293608
-Variance: 31.044767651266007
-Kurtosis: 0.7624358915770886
-Interquartile Range: 7.0 | Q1: 0.0 | Q3: 7.0
+Standard deviation: 5.879531971334467
+Skewness: 1.2147449323612685
+Variance: 34.56889620194417
+Kurtosis: 0.3224828874045511
+Interquartile Range: 8.0 | Q1: 0.0 | Q3: 8.0
 --------------------------------------------------
 Statistics of ft%
 --------------------------------------------------
 Min: 0.0
 Max: 2.0
-Mean: 0.6743295803480042
+Mean: 0.672467343976778
 Median: 0.75
-Standard deviation: 0.31146268142626277
-Skewness: -0.6794051828295792
-Variance: 0.09700900192123765
-Kurtosis: 1.8623969442447086
-Interquartile Range: 0.19999999999999996 | Q1: 0.63 | Q3: 0.83
+Standard deviation: 0.3177985812568939
+Skewness: -0.6264698274313885
+Variance: 0.1009959382488946
+Kurtosis: 1.9019556318095896
+Interquartile Range: 0.18999999999999995 | Q1: 0.64 | Q3: 0.83
 --------------------------------------------------
 Statistics of fg%
 --------------------------------------------------
 Min: 0.0
 Max: 0.98
-Mean: 0.37540429887410437
+Mean: 0.3732365747460087
 Median: 0.41
-Standard deviation: 0.1621419930928558
-Skewness: -0.8193853055555981
-Variance: 0.026290025924123696
-Kurtosis: 1.7833899043398507
+Standard deviation: 0.16239434149229368
+Skewness: -0.8635436815110452
+Variance: 0.0263719221487157
+Kurtosis: 1.7492576357994754
 Interquartile Range: 0.11000000000000004 | Q1: 0.35 | Q3: 0.46
 --------------------------------------------------
 Statistics of three%
 --------------------------------------------------
 Min: 0.0
 Max: 1.5
-Mean: 0.22408393039918117
-Median: 0.27
-Standard deviation: 0.2049115290845033
-Skewness: 0.8781459426559506
-Variance: 0.041988734751749246
-Kurtosis: 2.5080346721247633
+Mean: 0.21962264150943395
+Median: 0.26
+Standard deviation: 0.2004714714914962
+Skewness: 0.9407940973006044
+Variance: 0.04018881088196577
+Kurtosis: 3.288002514582799
 Interquartile Range: 0.36 | Q1: 0.0 | Q3: 0.36
 --------------------------------------------------
 Statistics of gs%
 --------------------------------------------------
 Min: 0.0
 Max: 2.0
-Mean: 0.5099897645854657
-Median: 0.5
-Standard deviation: 0.4540140866523147
-Skewness: 0.11036980301885227
-Variance: 0.2061287908787355
-Kurtosis: -1.5129775587705838
+Mean: 0.5349201741654572
+Median: 0.6
+Standard deviation: 0.45525743517417144
+Skewness: 0.008579911413895929
+Variance: 0.20725933228136492
+Kurtosis: -1.5547724276080341
 Interquartile Range: 1.0 | Q1: 0.0 | Q3: 1.0
 --------------------------------------------------
 Statistics of efg%
 --------------------------------------------------
 Min: 0.0
 Max: 2.52
-Mean: 0.8215762538382805
+Mean: 0.8144847605224964
 Median: 0.9
-Standard deviation: 0.3542233084121192
-Skewness: -0.7725958185902656
-Variance: 0.1254741522224273
-Kurtosis: 2.195468431086945
+Standard deviation: 0.354348079121793
+Skewness: -0.7810572150533132
+Variance: 0.12556256117730447
+Kurtosis: 2.295031542815906
 Interquartile Range: 0.21999999999999997 | Q1: 0.76 | Q3: 0.98
 --------------------------------------------------
 Statistics of ts%
 --------------------------------------------------
 Min: 0.0
 Max: 2.58
-Mean: 0.9090276356192426
-Median: 1.0
-Standard deviation: 0.38030614319934697
-Skewness: -0.8447701175938346
-Variance: 0.1446327625551622
-Kurtosis: 2.364891779742136
+Mean: 0.9002031930333817
+Median: 0.98
+Standard deviation: 0.38435912295243685
+Skewness: -0.8386893780910829
+Variance: 0.14773193539676646
+Kurtosis: 2.3477546398791507
 Interquartile Range: 0.22000000000000008 | Q1: 0.86 | Q3: 1.08
 --------------------------------------------------
 Statistics of ppg
 --------------------------------------------------
 Min: 0.0
-Max: 25.29
-Mean: 6.961351074718526
-Median: 6.03
-Standard deviation: 5.365037318306852
-Skewness: 0.6602575584284037
-Variance: 28.78362542682518
-Kurtosis: -0.21200097296382703
-Interquartile Range: 8.13 | Q1: 2.58 | Q3: 10.71
+Max: 24.12
+Mean: 7.228011611030479
+Median: 6.32
+Standard deviation: 5.450356849836776
+Skewness: 0.5499336415747103
+Variance: 29.706389790562667
+Kurtosis: -0.41921591402969893
+Interquartile Range: 8.41 | Q1: 2.68 | Q3: 11.09
 --------------------------------------------------
 Statistics of rpg
 --------------------------------------------------
 Min: 0.0
 Max: 14.06
-Mean: 3.132947799385875
-Median: 2.81
-Standard deviation: 2.3136195363440013
-Skewness: 0.8749834183526471
-Variance: 5.352835358952632
-Kurtosis: 1.0142114918609204
-Interquartile Range: 3.0599999999999996 | Q1: 1.41 | Q3: 4.47
+Mean: 3.2332365747460092
+Median: 2.92
+Standard deviation: 2.3373036798662166
+Skewness: 0.8024077429620057
+Variance: 5.462988491916158
+Kurtosis: 0.9305969001045562
+Interquartile Range: 3.1 | Q1: 1.52 | Q3: 4.62
 --------------------------------------------------
 Statistics of apg
 --------------------------------------------------
 Min: 0.0
 Max: 8.059999999999999
-Mean: 1.541248720573183
-Median: 1.26
-Standard deviation: 1.3404724808388158
-Skewness: 1.2132337588145992
-Variance: 1.796866471886169
-Kurtosis: 1.6475159007664297
-Interquartile Range: 1.7400000000000002 | Q1: 0.5 | Q3: 2.24
+Mean: 1.5883744557329462
+Median: 1.35
+Standard deviation: 1.3320840570926804
+Skewness: 1.0851980915424586
+Variance: 1.7744479351604954
+Kurtosis: 1.2211874921773491
+Interquartile Range: 1.74 | Q1: 0.55 | Q3: 2.29
 --------------------------------------------------
 Statistics of spg
 --------------------------------------------------
 Min: 0.0
 Max: 5.0
-Mean: 0.7739303991811668
-Median: 0.71
-Standard deviation: 0.5893547694988907
-Skewness: 1.0515064077362384
-Variance: 0.34733904433109053
-Kurtosis: 2.931429400417075
-Interquartile Range: 0.8299999999999998 | Q1: 0.32 | Q3: 1.15
+Mean: 0.7947169811320753
+Median: 0.74
+Standard deviation: 0.595859465505696
+Skewness: 1.089289119147091
+Variance: 0.3550485026327337
+Kurtosis: 3.618944449630871
+Interquartile Range: 0.83 | Q1: 0.35 | Q3: 1.18
 --------------------------------------------------
 Statistics of bpg
 --------------------------------------------------
 Min: 0.0
-Max: 3.57
-Mean: 0.35554759467758446
+Max: 2.94
+Mean: 0.35867924528301887
 Median: 0.18
-Standard deviation: 0.46458726178000764
-Skewness: 2.4943582104953266
-Variance: 0.21584132380824536
-Kurtosis: 8.444733014231772
+Standard deviation: 0.4655206170858469
+Skewness: 2.318404260190185
+Variance: 0.2167094449319877
+Kurtosis: 6.793624164941122
 Interquartile Range: 0.44 | Q1: 0.06 | Q3: 0.5
 --------------------------------------------------
 Statistics of eff
 --------------------------------------------------
-Min: -446.0
+Min: -422.94
 Max: 8.5
-Mean: -140.9453121801433
-Median: -127.63
-Standard deviation: 107.33684926612518
-Skewness: -0.39623527421189775
-Variance: 11521.199210378878
-Kurtosis: -0.8153564041334933
-Interquartile Range: 176.57 | Q1: -223.64 | Q3: -47.07
+Mean: -146.06693759071118
+Median: -138.37
+Standard deviation: 108.73429089719654
+Skewness: -0.31857494843824763
+Variance: 11823.146016916158
+Kurtosis: -0.8913280491111513
+Interquartile Range: 176.95 | Q1: -229.01 | Q3: -52.06
 --------------------------------------------------
 Statistics of pp36
 --------------------------------------------------
 Min: 0.0
-Max: 45.0
-Mean: 10.967287615148415
-Median: 11.16
-Standard deviation: 5.825229126586675
-Skewness: 0.07094214122069774
-Variance: 33.93329437723376
-Kurtosis: 1.0474157228239172
-Interquartile Range: 6.48 | Q1: 7.92 | Q3: 14.4
+Max: 29.16
+Mean: 10.978171262699567
+Median: 11.52
+Standard deviation: 5.8583216125418796
+Skewness: -0.16901070618722777
+Variance: 34.31993211597529
+Kurtosis: -0.13801141394267624
+Interquartile Range: 7.2 | Q1: 7.56 | Q3: 14.76
 --------------------------------------------------
 Statistics of defensive_prowess
 --------------------------------------------------
 Min: 0.0
 Max: 131.60000000000002
-Mean: 33.05701125895599
-Median: 30.9
-Standard deviation: 23.688026011134323
-Skewness: 0.8065090860286432
-Variance: 561.1225763041763
-Kurtosis: 0.8523563415834556
-Interquartile Range: 31.799999999999997 | Q1: 15.0 | Q3: 46.8
+Mean: 34.09303338171262
+Median: 32.400000000000006
+Standard deviation: 23.842896855572178
+Skewness: 0.7250983608065438
+Variance: 568.4837304654537
+Kurtosis: 0.7362464527836452
+Interquartile Range: 32.0 | Q1: 16.4 | Q3: 48.4
 --------------------------------------------------
 Statistics of defensive_discipline
 --------------------------------------------------
 Min: 0.0
-Max: 28.04
-Mean: 6.689477993858751
-Median: 6.96
-Standard deviation: 3.8392808829964333
-Skewness: 0.11723683657657573
-Variance: 14.740077698541874
-Kurtosis: 0.4809379268268126
-Interquartile Range: 5.64 | Q1: 3.88 | Q3: 9.52
+Max: 20.82
+Mean: 6.806734397677794
+Median: 7.24
+Standard deviation: 3.7455424577622107
+Skewness: -0.19379108745766885
+Variance: 14.029088302899384
+Kurtosis: -0.42488399542869537
+Interquartile Range: 5.580000000000001 | Q1: 4.06 | Q3: 9.64
 --------------------------------------------------
 Statistics of mpg
 --------------------------------------------------
 Min: 0.0
 Max: 63.61
-Mean: 19.724953940634595
-Median: 20.85
-Standard deviation: 11.18775105144304
-Skewness: -0.06207200145444898
-Variance: 125.16577358906487
-Kurtosis: -0.3525281769111044
-Interquartile Range: 17.97 | Q1: 11.0 | Q3: 28.97
+Mean: 20.0999854862119
+Median: 21.5
+Standard deviation: 11.089423393109739
+Skewness: -0.20786295804080496
+Variance: 122.97531119164951
+Kurtosis: -0.3030008692531907
+Interquartile Range: 17.580000000000002 | Q1: 11.68 | Q3: 29.26
 --------------------------------------------------
 Statistics of pos
 --------------------------------------------------
 Min: 1
 Max: 5
-Mean: 2.4554759467758442
+Mean: 2.505079825834543
 Median: 2.0
-Standard deviation: 1.4114262942510412
-Skewness: 0.5915049385951822
-Variance: 1.9921241841032267
-Kurtosis: -1.0024157864154009
+Standard deviation: 1.4306813614018883
+Skewness: 0.5452851239830832
+Variance: 2.0468491578627606
+Kurtosis: -1.0846013947338917
 Interquartile Range: 3.0 | Q1: 1.0 | Q3: 4.0
 --------------------------------------------------
 Statistics of college
 --------------------------------------------------
 Min: 575
 Max: 746
-Mean: 614.6090071647902
-Median: 612.0
-Standard deviation: 32.537409754649445
-Skewness: 0.938827569912469
-Variance: 1058.6830335419568
-Kurtosis: 0.6448185402778011
+Mean: 615.6966618287373
+Median: 613.0
+Standard deviation: 33.30522172382244
+Skewness: 0.973866055448495
+Variance: 1109.237794072974
+Kurtosis: 0.8602842523711227
 Interquartile Range: 45.0 | Q1: 588.0 | Q3: 633.0
 --------------------------------------------------
 Statistics of stats_post
 --------------------------------------------------
 Min: -2.65
 Max: 2.0
-Mean: -0.17204708290685772
+Mean: -0.19609579100145139
 Median: 0.0
-Standard deviation: 0.45863069743900436
-Skewness: -2.050832186913594
-Variance: 0.2103421166333876
-Kurtosis: 5.985495843558858
-Interquartile Range: 0.15 | Q1: -0.15 | Q3: 0.0
+Standard deviation: 0.4851459227821484
+Skewness: -1.8435876015321857
+Variance: 0.23536656639214232
+Kurtosis: 4.702038281517655
+Interquartile Range: 0.2 | Q1: -0.2 | Q3: 0.0
 --------------------------------------------------
 Statistics of W%
 --------------------------------------------------
 Min: 0.0
-Max: 1.28
-Mean: 0.47403275332650974
-Median: 0.5
-Standard deviation: 0.21677879049410634
-Skewness: -0.40939032576449774
-Variance: 0.04699304400808765
-Kurtosis: 1.018635998806813
+Max: 1.24
+Mean: 0.47012336719883885
+Median: 0.525
+Standard deviation: 0.21519634934180654
+Skewness: -0.6596219961632525
+Variance: 0.046309468770040836
+Kurtosis: 0.6060421090581172
 Interquartile Range: 0.20999999999999996 | Q1: 0.38 | Q3: 0.59
 --------------------------------------------------
 Statistics of postW%
 --------------------------------------------------
 Min: 0.0
-Max: 1.0
-Mean: 0.2091811668372569
+Max: 0.8900000000000001
+Mean: 0.21570391872278666
 Median: 0.0
-Standard deviation: 0.26556802895982096
-Skewness: 0.9161115832234794
-Variance: 0.07052637800560431
-Kurtosis: -0.29151174084745657
+Standard deviation: 0.2615152725747654
+Skewness: 0.7686208917752138
+Variance: 0.06839023778985384
+Kurtosis: -0.7338699485984632
 Interquartile Range: 0.4 | Q1: 0.0 | Q3: 0.4
 --------------------------------------------------
 Statistics of playoff
 --------------------------------------------------
 Min: 0.0
 Max: 1.0
-Mean: 0.5455475946775844
+Mean: 0.5645863570391872
 Median: 1.0
-Standard deviation: 0.4981761119948886
-Skewness: -0.1832324936587641
-Variance: 0.24817943856234376
-Kurtosis: -1.9704637592589638
+Standard deviation: 0.4961712521898519
+Skewness: -0.26109687363943856
+Variance: 0.24618591149964564
+Kurtosis: -1.9374608638741329
 Interquartile Range: 1.0 | Q1: 0.0 | Q3: 1.0
 --------------------------------------------------
 Statistics of confID
 --------------------------------------------------
 Min: 701
 Max: 702
-Mean: 701.4872057318321
+Mean: 701.4818577648766
 Median: 701.0
-Standard deviation: 0.5000922780092586
-Skewness: 0.0512725886175252
-Variance: 0.25009228652448956
-Kurtosis: -2.001472505254872
+Standard deviation: 0.5000337518563905
+Skewness: 0.07277529118228059
+Variance: 0.2500337529955784
+Kurtosis: -2.00051924225237
 Interquartile Range: 1.0 | Q1: 701.0 | Q3: 702.0
 --------------------------------------------------
 Statistics of playoff_progression
 --------------------------------------------------
 Min: 0.0
 Max: 4.0
-Mean: 1.038894575230297
+Mean: 1.1190130624092889
 Median: 1.0
-Standard deviation: 1.247342259049334
-Skewness: 1.1134864025764422
-Variance: 1.5558627112102956
-Kurtosis: 0.2012916384159653
+Standard deviation: 1.272610008541797
+Skewness: 1.0107030465626015
+Variance: 1.619536233840753
+Kurtosis: -0.03423913030960524
 Interquartile Range: 2.0 | Q1: 0.0 | Q3: 2.0
 --------------------------------------------------
 Statistics of height
 --------------------------------------------------
 Min: 9.0
-Max: 80.0
-Mean: 71.64073694984647
+Max: 78.0
+Mean: 71.59506531204644
 Median: 72.0
-Standard deviation: 6.2833453640990635
-Skewness: -7.105670934367287
-Variance: 39.4804289645452
-Kurtosis: 68.45609399133707
+Standard deviation: 6.712321976122355
+Skewness: -7.0709014509967
+Variance: 45.055266311135114
+Kurtosis: 63.64344463224451
 Interquartile Range: 6.0 | Q1: 69.0 | Q3: 75.0
 --------------------------------------------------
 Statistics of weight
 --------------------------------------------------
-Min: 0
+Min: 118
 Max: 240
-Mean: 167.63254861821903
+Mean: 167.93323657474602
 Median: 165.0
-Standard deviation: 22.639890375690864
-Skewness: 0.07716291653660083
-Variance: 512.5646362232998
-Kurtosis: 3.1138658384150935
-Interquartile Range: 33.0 | Q1: 150.0 | Q3: 183.0
+Standard deviation: 21.44689659078061
+Skewness: 0.5036719614254158
+Variance: 459.969373375637
+Kurtosis: 0.32692160125860337
+Interquartile Range: 31.0 | Q1: 152.0 | Q3: 183.0
 --------------------------------------------------
 Statistics of award_count
 --------------------------------------------------
 Min: 0.0
 Max: 2.0
-Mean: 0.05015353121801433
+Mean: 0.059506531204644414
 Median: 0.0
-Standard deviation: 0.2531410806879881
-Skewness: 5.535977656251145
-Variance: 0.06408040673188248
-Kurtosis: 32.76686984738767
+Standard deviation: 0.2763976960236194
+Skewness: 5.07214185887608
+Variance: 0.07639568636716511
+Kurtosis: 27.23085572102995
 Interquartile Range: 0.0 | Q1: 0.0 | Q3: 0.0
 --------------------------------------------------
 Statistics of career_year
 --------------------------------------------------
-Min: 3
+Min: 4
 Max: 12
-Mean: 5.044012282497441
-Median: 4.0
-Standard deviation: 2.0433587625857266
-Skewness: 0.9433193468987483
-Variance: 4.175315032635872
-Kurtosis: 0.09021352278383121
-Interquartile Range: 3.0 | Q1: 3.0 | Q3: 6.0
+Mean: 5.898403483309144
+Median: 5.0
+Standard deviation: 1.8555730967000872
+Skewness: 0.866263709264198
+Variance: 3.443151517197151
+Kurtosis: -0.08593377036916428
+Interquartile Range: 3.0 | Q1: 4.0 | Q3: 7.0
 --------------------------------------------------
 Statistics of playoff_progression_rolling
 --------------------------------------------------
 Min: 0.0
-Max: 4.0
-Mean: 1.1023541453428864
+Max: 3.6666666666666665
+Mean: 1.159167876149008
 Median: 1.0
-Standard deviation: 0.9919060686590928
-Skewness: 0.8575010924669949
-Variance: 0.9838776490427369
-Kurtosis: -0.02844733560817536
-Interquartile Range: 1.5 | Q1: 0.5 | Q3: 2.0
---------------------------------------------------
-Statistics of playoff_rolling
---------------------------------------------------
-Min: 0.0
-Max: 1.0
-Mean: 0.5772773797338793
-Median: 0.5
-Standard deviation: 0.3711076103133314
-Skewness: -0.25587752118825635
-Variance: 0.13772085843247142
-Kurtosis: -1.153166448563891
-Interquartile Range: 0.5 | Q1: 0.5 | Q3: 1.0
+Standard deviation: 0.8738134540954892
+Skewness: 0.7620379032383525
+Variance: 0.7635499525582896
+Kurtosis: -0.007824294247625208
+Interquartile Range: 1.3333333333333335 | Q1: 0.3333333333333333 | Q3: 1.6666666666666667
 --------------------------------------------------
 Statistics of eff_rolling
 --------------------------------------------------
-Min: -412.01
-Max: -1.1
-Mean: -170.6326202661208
-Median: -161.9
-Standard deviation: 89.72490761636072
-Skewness: -0.3418539409661745
-Variance: 8050.559046764467
-Kurtosis: -0.6376813228735503
-Interquartile Range: 134.08000000000004 | Q1: -233.91500000000005 | Q3: -99.835
+Min: -400.3466666666666
+Max: -21.51333333333333
+Mean: -183.66762457668116
+Median: -180.7
+Standard deviation: 83.89134958345697
+Skewness: -0.22925100466407256
+Variance: 7037.758534933787
+Kurtosis: -0.6992372530462139
+Interquartile Range: 128.71666666666664 | Q1: -243.50666666666663 | Q3: -114.79
 --------------------------------------------------
 Statistics of award_count_rolling
 --------------------------------------------------
 Min: 0.0
-Max: 2.5
-Mean: 0.06345957011258956
+Max: 1.6666666666666667
+Mean: 0.07256894049346879
 Median: 0.0
-Standard deviation: 0.22421426249269444
-Skewness: 4.910368038524397
-Variance: 0.050272035505142885
-Kurtosis: 31.811951389547808
+Standard deviation: 0.20933633625346496
+Skewness: 4.176697566457273
+Variance: 0.04382170167602375
+Kurtosis: 21.78985561463584
 Interquartile Range: 0.0 | Q1: 0.0 | Q3: 0.0
 --------------------------------------------------
 Statistics of defensive_prowess_rolling
 --------------------------------------------------
-Min: 1.65
-Max: 116.5
-Mean: 38.4050153531218
-Median: 35.45
-Standard deviation: 20.51830101798692
-Skewness: 0.9328907621198135
-Variance: 421.0006766647231
-Kurtosis: 0.9119383595149753
-Interquartile Range: 26.0 | Q1: 23.1 | Q3: 49.1
+Min: 3.633333333333333
+Max: 118.53333333333336
+Mean: 40.744412191582
+Median: 38.0
+Standard deviation: 19.72292787249
+Skewness: 0.9459751559211995
+Variance: 388.99388386344293
+Kurtosis: 1.0061243848246324
+Interquartile Range: 25.03333333333334 | Q1: 26.066666666666663 | Q3: 51.1
 --------------------------------------------------
 Statistics of stats_post_rolling
 --------------------------------------------------
-Min: -2.095
-Max: 1.5
-Mean: -0.1931883316274309
-Median: -0.045
-Standard deviation: 0.3582730426663643
-Skewness: -1.5667262587867306
-Variance: 0.1283595731014145
-Kurtosis: 4.737159175652151
-Interquartile Range: 0.33 | Q1: -0.33 | Q3: 0.0
+Min: -1.92
+Max: 1.0
+Mean: -0.21149492017416546
+Median: -0.11
+Standard deviation: 0.3265246097171952
+Skewness: -1.3741008886766617
+Variance: 0.10661832075096664
+Kurtosis: 3.873926330537257
+Interquartile Range: 0.3666666666666667 | Q1: -0.3666666666666667 | Q3: 0.0
 --------------------------------------------------
 Statistics of PostPoints_rolling
 --------------------------------------------------
 Min: 0.0
-Max: 21.58
-Mean: 4.363198567041964
-Median: 2.8
-Standard deviation: 4.812798045856782
-Skewness: 1.1936700621368062
-Variance: 23.163025030202864
-Kurtosis: 0.7883743531285843
-Interquartile Range: 7.0 | Q1: 0.0 | Q3: 7.0
+Max: 20.8
+Mean: 4.973425253991293
+Median: 3.89
+Standard deviation: 4.517153819083344
+Skewness: 1.0075230148898677
+Variance: 20.40467862525924
+Kurtosis: 0.4780287411452244
+Interquartile Range: 6.166666666666667 | Q1: 1.3333333333333333 | Q3: 7.5
 --------------------------------------------------
 Statistics of W%_rolling
 --------------------------------------------------
-Min: 0.165
-Max: 1.0175
-Mean: 0.5183188331627431
-Median: 0.515
-Standard deviation: 0.13294507460662727
-Skewness: 0.17962965736439676
-Variance: 0.01767439286216169
-Kurtosis: 0.19388087864906245
-Interquartile Range: 0.1825 | Q1: 0.4225 | Q3: 0.605
+Min: 0.2516666666666666
+Max: 0.8933333333333332
+Mean: 0.5220537010159652
+Median: 0.52
+Standard deviation: 0.11002045786796663
+Skewness: 0.22951591943708882
+Variance: 0.01210450114947702
+Kurtosis: 0.10215891081419759
+Interquartile Range: 0.14833333333333326 | Q1: 0.4416666666666667 | Q3: 0.59
 --------------------------------------------------
 Statistics of postW%_rolling
 --------------------------------------------------
 Min: 0.0
-Max: 0.93
-Mean: 0.2227840327533265
-Median: 0.165
-Standard deviation: 0.2115295522287543
-Skewness: 0.8256892467352711
-Variance: 0.04474475146609729
-Kurtosis: 0.09294747866850495
-Interquartile Range: 0.375 | Q1: 0.0 | Q3: 0.375
+Max: 0.8066666666666666
+Mean: 0.23181906144170292
+Median: 0.2133333333333333
+Standard deviation: 0.1860671266279606
+Skewness: 0.8177671151486355
+Variance: 0.034620975611585524
+Kurtosis: 0.25732559611569217
+Interquartile Range: 0.23333333333333334 | Q1: 0.11 | Q3: 0.3433333333333333
+--------------------------------------------------
+Statistics of rpg_rolling
+--------------------------------------------------
+Min: 0.3466666666666667
+Max: 10.766666666666666
+Mean: 3.872718916303822
+Median: 3.56
+Standard deviation: 1.971285166222364
+Skewness: 0.9504413451664763
+Variance: 3.885965206568333
+Kurtosis: 0.8294882065378406
+Interquartile Range: 2.4566666666666666 | Q1: 2.4466666666666668 | Q3: 4.903333333333333
