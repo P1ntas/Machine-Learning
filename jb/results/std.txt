@@ -1,8 +1,0 @@
-Year: 3, Classifier: RandomForestClassifier, Accuracy: 0.75, Num Predictions: 16, Num Correct: 12
-Year: 4, Classifier: RandomForestClassifier, Accuracy: 0.29, Num Predictions: 14, Num Correct: 4
-Year: 5, Classifier: RandomForestClassifier, Accuracy: 0.85, Num Predictions: 13, Num Correct: 11
-Year: 6, Classifier: RandomForestClassifier, Accuracy: 0.69, Num Predictions: 13, Num Correct: 9
-Year: 7, Classifier: RandomForestClassifier, Accuracy: 0.86, Num Predictions: 14, Num Correct: 12
-Year: 8, Classifier: RandomForestClassifier, Accuracy: 0.54, Num Predictions: 13, Num Correct: 7
-Year: 9, Classifier: RandomForestClassifier, Accuracy: 0.86, Num Predictions: 14, Num Correct: 12
-Year: 10, Classifier: RandomForestClassifier, Accuracy: 0.54, Num Predictions: 13, Num Correct: 7
